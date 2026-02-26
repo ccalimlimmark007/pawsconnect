@@ -27,18 +27,13 @@ Route::get('/about', function () {
 })->name('about');
 
 
-// --- Auth Pages (Simple Render) ---
-// We use simple functions here because the Controllers are missing
-// --- Auth Pages (Matching your lowercase files) ---
-Route::get('/login', function () {
-    return Inertia::render('auth/login'); // Changed from 'Auth/Login'
-})->name('login');
+// --- Auth Pages ---
+// Fortify handles authentication routes automatically (login, register, logout, etc.)
+// These routes are configured in app/Providers/FortifyServiceProvider.php
 
-Route::get('/register', function () {
-    return Inertia::render('auth/register'); // Changed from 'Auth/Register'
-})->name('register');
-
-// A placeholder logout route to prevent errors in the Navbar
-Route::post('/logout', function () {
-    return redirect('/');
-})->name('logout');
+// --- Protected Routes ---
+Route::middleware(['auth'])->group(function () {
+    Route::get('/dashboard', function () {
+        return Inertia::render('dashboard');
+    })->name('dashboard');
+});
