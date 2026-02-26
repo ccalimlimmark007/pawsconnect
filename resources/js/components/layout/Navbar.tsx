@@ -58,10 +58,12 @@ export function Navbar() {
 
         {user ? (
           <div className="hidden md:flex items-center gap-3">
-            <Button variant="ghost" size="sm" onClick={() => router.visit("/profile")}>
-              <User className="w-4 h-4 mr-1" />
-              {user.name.split(" ")[0]}
-            </Button>
+            <Link href="/profile" className="inline-flex">
+              <Button variant="ghost" size="sm">
+                <User className="w-4 h-4 mr-1" />
+                {user.name.split(" ")[0]}
+              </Button>
+            </Link>
             <Button variant="soft" size="sm" onClick={handleLogout}>
               <LogOut className="w-4 h-4 mr-1" />
               Sign Out
@@ -69,12 +71,16 @@ export function Navbar() {
           </div>
         ) : (
           <div className="hidden md:flex items-center gap-3">
-            <Button variant="soft" size="sm" onClick={() => router.visit("/login")}>
-              Sign In
-            </Button>
-            <Button variant="hero" size="sm" onClick={() => router.visit("/register")}>
-              Get Started
-            </Button>
+            <Link href="/login">
+              <Button variant="soft" size="sm">
+                Sign In
+              </Button>
+            </Link>
+            <Link href="/register">
+              <Button variant="hero" size="sm">
+                Get Started
+              </Button>
+            </Link>
           </div>
         )}
 
@@ -111,10 +117,12 @@ export function Navbar() {
             ))}
             {user ? (
               <div className="flex flex-col gap-2 pt-2">
-                <Button variant="ghost" size="sm" className="justify-start" onClick={() => { router.visit("/profile"); setMobileOpen(false); }}>
-                  <User className="w-4 h-4 mr-2" />
-                  My Profile
-                </Button>
+                <Link href="/profile" onClick={() => setMobileOpen(false)}>
+                  <Button variant="ghost" size="sm" className="justify-start w-full">
+                    <User className="w-4 h-4 mr-2" />
+                    My Profile
+                  </Button>
+                </Link>
                 <Button variant="soft" size="sm" onClick={handleLogout}>
                   <LogOut className="w-4 h-4 mr-2" />
                   Sign Out
@@ -122,12 +130,16 @@ export function Navbar() {
               </div>
             ) : (
               <div className="flex gap-3 pt-2">
-                <Button variant="soft" size="sm" className="flex-1" onClick={() => { router.visit("/login"); setMobileOpen(false); }}>
-                  Sign In
-                </Button>
-                <Button variant="hero" size="sm" className="flex-1" onClick={() => { router.visit("/register"); setMobileOpen(false); }}>
-                  Get Started
-                </Button>
+                <Link href="/login" className="flex-1" onClick={() => setMobileOpen(false)}>
+                  <Button variant="soft" size="sm" className="flex-1">
+                    Sign In
+                  </Button>
+                </Link>
+                <Link href="/register" className="flex-1" onClick={() => setMobileOpen(false)}>
+                  <Button variant="hero" size="sm" className="flex-1">
+                    Get Started
+                  </Button>
+                </Link>
               </div>
             )}
           </div>

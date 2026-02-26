@@ -36,4 +36,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', function () {
         return Inertia::render('dashboard');
     })->name('dashboard');
+
+    Route::get('/profile', function () {
+        return Inertia::render('Profile', [
+            'status' => session('status'),
+        ]);
+    })->name('profile');
 });
