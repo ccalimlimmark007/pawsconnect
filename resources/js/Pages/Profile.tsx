@@ -86,9 +86,7 @@ export default function Profile() {
                                 <p className="font-medium">{status}</p>
                             </div>
 
-                            <Link href="/">
-                                <Button variant="outline" size="sm">Home</Button>
-                            </Link>
+                            {/* Left navigation available via the app sidebar; no Home button here */}
                         </div>
                     )}
 
