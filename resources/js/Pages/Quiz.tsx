@@ -7,16 +7,17 @@ import { Progress } from "@/components/ui/progress";
 import { ChevronRight, ChevronLeft, Sparkles } from "lucide-react";
 import { getMatchResults, QuizAnswers } from "@/services/matchmakingService";
 
+
 // These are the questions from your original project
 const steps = [
   {
     id: "species",
     question: "What kind of companion are you looking for?",
     options: [
-      { id: "dog", label: "Dogs", icon: "🐕" },
-      { id: "cat", label: "Cats", icon: "🐈" },
-      { id: "rabbit", label: "Rabbits", icon: "🐇" },
-      { id: "any", label: "I'm open to any!", icon: "🐾" },
+      { id: "Dog", label: "Dogs", icon: "🐕" },
+      { id: "Cat", label: "Cats", icon: "🐈" },
+      { id: "Rabbit", label: "Rabbits", icon: "🐇" },
+      { id: "Any", label: "I'm open to any!", icon: "🐾" },
     ],
     multiple: true,
   },
@@ -24,27 +25,26 @@ const steps = [
     id: "housing",
     question: "What's your current living situation?",
     options: [
-      { id: "apartment", label: "Apartment/Condo", icon: "🏢" },
-      { id: "house_yard", label: "House with Yard", icon: "🏡" },
-      { id: "house_no_yard", label: "House (No Yard)", icon: "🏠" },
+      { id: "Apartment", label: "Apartment/Condo", icon: "🏢" }, // Changed from apartment
+      { id: "House with Yard", label: "House with Yard", icon: "🏡" }, // Changed from house_yard
+      { id: "House without Yard", label: "House (No Yard)", icon: "🏠" }, // Changed from house_no_yard
     ],
   },
   {
     id: "activity",
     question: "How would you describe your activity level?",
     options: [
-      { id: "low", label: "Relaxed & Low-key", icon: "🛋️" },
-      { id: "moderate", label: "Casual Walks", icon: "🚶" },
-      { id: "high", label: "Very Active/Running", icon: "🏃" },
+      { id: "Low", label: "Relaxed & Low-key", icon: "🛋️" }, // Capitalized
+      { id: "Moderate", label: "Casual Walks", icon: "🚶" }, // Capitalized
+      { id: "High", label: "Very Active/Running", icon: "🏃" }, // Capitalized
     ],
   },
-  // Adding one more important one for the Matchmaker
   {
     id: "experience",
     question: "Your pet ownership experience?",
     options: [
-      { id: "first", label: "First-time owner", icon: "🐣" },
-      { id: "experienced", label: "Have had pets before", icon: "🦴" },
+      { id: "First-Time", label: "First-time owner", icon: "🐣" }, // Changed from first
+      { id: "Experienced", label: "Have had pets before", icon: "🦴" }, // Changed from experienced
     ],
   },
 ];
@@ -75,15 +75,23 @@ export default function Quiz() {
     }
   };
 
-  const handleFinish = async () => {
-    setIsSubmitting(true);
-    // Call the service we just fixed!
-    const results = await getMatchResults(answers as QuizAnswers, user);
+const handleFinish = async () => {
+  setIsSubmitting(true);
+  try {
+    const results = await getMatchResults(answers as QuizAnswers, null);
     
-    // Redirect to the matches page and pass the results
-    router.get('/matches', { results: JSON.stringify(results) });
-  };
+    console.log("DEBUG: Raw Mock Pets Count:", results.length); 
+    console.log("DEBUG: First Match Score:", results[0]?.compatibilityScore);
 
+    router.get('/matches', { 
+      results: JSON.stringify(results) 
+    });
+  } catch (error) {
+    console.error("Quiz Error:", error);
+  } finally {
+    setIsSubmitting(false);
+  }
+};
   return (
     <>
       <Head title="Pet Match Quiz | PawsConnect" />

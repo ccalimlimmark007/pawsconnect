@@ -55,15 +55,43 @@ const reasoningTemplates = {
   ],
 };
 
-// Calculate compatibility based on quiz answers and pet traits
 function calculateCompatibility(pet: Pet, answers: QuizAnswers): MatchAnalysis {
-  let score = 50; // Base score
+  // --- ADD THIS BLOCK START ---
+  // Create a normalized version of answers so casing doesn't break our logic
+  const normalized = {
+    housing: answers.housing?.toLowerCase(),
+    activity: answers.activity?.toLowerCase(),
+    experience: answers.experience?.toLowerCase(),
+    work: answers.work?.toLowerCase(),
+    species: answers.species?.map(s => s.toLowerCase()) || [],
+  };
+  // --- ADD THIS BLOCK END ---
+
+  let score = 50; 
   const highlights: string[] = [];
   const considerations: string[] = [];
 
+  // 1. Housing compatibility (Use 'normalized.housing' instead of 'answers.housing')
+  if (normalized.housing) {
+    if (normalized.housing === "house with yard") { // Check lowercase
+      if (pet.size === "Large" || pet.temperamentTags.includes("High Energy")) {
+        score += 15;
+        highlights.push("Your yard provides excellent space for exercise");
+      }
+    } else if (normalized.housing === "apartment" || normalized.housing === "condo") {
+      if (pet.size === "Small" && pet.temperamentTags.includes("Calm")) {
+        score += 12;
+        highlights.push("Perfect for apartment living");
+      } else if (pet.size === "Large" || pet.temperamentTags.includes("High Energy")) {
+        score -= 15;
+        considerations.push("May need extra outdoor time in apartment setting");
+      }
+    }
+  }
+
   // Housing compatibility
   if (answers.housing) {
-    if (answers.housing === "house_yard") {
+ if (answers.housing === "House with Yard") {
       if (pet.size === "Large" || pet.temperamentTags.includes("High Energy")) {
         score += 15;
         highlights.push("Your yard provides excellent space for exercise");
@@ -133,15 +161,27 @@ function calculateCompatibility(pet: Pet, answers: QuizAnswers): MatchAnalysis {
   }
 
   // Species preference
-  if (answers.species && answers.species.length > 0 && !answers.species.includes("any")) {
-    const speciesMap: Record<string, string> = { dog: "Dog", cat: "Cat", rabbit: "Rabbit" };
-    const preferredSpecies = answers.species.map(s => speciesMap[s] || s);
+// 1. Convert everything to lowercase for the check to avoid Case Sensitivity issues
+const normalizedSpecies = answers.species?.map(s => s.toLowerCase()) || [];
+
+if (normalizedSpecies.length > 0 && !normalizedSpecies.includes("any")) {
+    // This map handles the translation to your Pet.ts Species types
+    const speciesMap: Record<string, string> = { 
+        dog: "Dog", 
+        cat: "Cat", 
+        rabbit: "Rabbit",
+        bird: "Bird"
+    };
+
+    const preferredSpecies = normalizedSpecies.map(s => speciesMap[s] || s);
+
+    // We check if the pet's species (e.g., "Dog") is in our preferred list
     if (preferredSpecies.includes(pet.species)) {
-      score += 10;
+        score += 10;
     } else {
-      score -= 20;
+        score -= 20;
     }
-  }
+}
 
   // Size preference
   if (answers.size && answers.size.length > 0 && !answers.size.includes("any")) {
