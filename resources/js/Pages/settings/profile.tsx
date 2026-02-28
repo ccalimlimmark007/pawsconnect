@@ -46,7 +46,7 @@ export default function Profile({
                     <Form
                         {...ProfileController.update.form()}
                         options={{
-                            preserveScroll: true,
+                            preserveScroll: false,
                         }}
                         className="space-y-6"
                     >

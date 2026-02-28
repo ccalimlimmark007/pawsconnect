@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { BookOpen, Folder, LayoutGrid } from 'lucide-react';
+import { BookOpen, Folder, LayoutGrid, Home, User, Key, Sliders, ShieldCheck } from 'lucide-react';
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
@@ -18,9 +18,34 @@ import AppLogo from './app-logo';
 
 const mainNavItems: NavItem[] = [
     {
+        title: 'Home',
+        href: '/',
+        icon: Home,
+    },
+    {
         title: 'Dashboard',
         href: '/dashboard',
         icon: LayoutGrid,
+    },
+    {
+        title: 'Profile',
+        href: '/profile',
+        icon: User,
+    },
+    {
+        title: 'Change Password',
+        href: '/settings/password',
+        icon: Key,
+    },
+    {
+        title: 'Two-Factor',
+        href: '/settings/two-factor',
+        icon: ShieldCheck,
+    },
+    {
+        title: 'Appearance',
+        href: '/settings/appearance',
+        icon: Sliders,
     },
 ];
 
