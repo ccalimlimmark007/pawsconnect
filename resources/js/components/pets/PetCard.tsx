@@ -3,6 +3,7 @@ import type { Pet, TemperamentTag } from "@/types/pet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Heart, MapPin } from "lucide-react";
+import { Link } from '@inertiajs/react';
 
 
 interface PetCardProps {
@@ -23,12 +24,13 @@ const tagVariants: Record<TemperamentTag, "energy" | "calm" | "friendly" | "play
 
 export function PetCard({ pet, index = 0 }: PetCardProps) {
   return (
-    <motion.article
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay: index * 0.1 }}
-      className="group bg-card rounded-2xl overflow-hidden border border-border card-elevated"
-    >
+    <Link href={`/pets/${pet.id}`} as="div">
+      <motion.article
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: index * 0.1 }}
+        className="group bg-card rounded-2xl overflow-hidden border border-border card-elevated cursor-pointer"
+      >
       <div className="relative aspect-[4/3] overflow-hidden">
         <img
           src={pet.imageUrl}
@@ -37,12 +39,12 @@ export function PetCard({ pet, index = 0 }: PetCardProps) {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         
-        <button 
+        <div 
           className="absolute top-3 right-3 w-10 h-10 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-all duration-300"
-          aria-label="Add to favorites"
+          aria-hidden
         >
           <Heart className="w-5 h-5" />
-        </button>
+        </div>
 
         {pet.medicalStatus !== "Healthy" && (
           <Badge variant="secondary" className="absolute top-3 left-3">
