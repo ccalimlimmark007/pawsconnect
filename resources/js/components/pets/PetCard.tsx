@@ -90,5 +90,6 @@ export function PetCard({ pet, index = 0 }: PetCardProps) {
         </div>
       </div>
     </motion.article>
+    </Link>
   );
 }
