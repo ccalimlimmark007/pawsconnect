@@ -1,6 +1,7 @@
 import { Head, Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
-import { ArrowLeft, ChevronLeft, ChevronRight, FileText, Phone, Mail, MapPin } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, FileText, Phone, Mail, MapPin, Heart } from 'lucide-react';
+import { Dialog, DialogTrigger, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import { mockPets } from '@/data/mockPets';
@@ -23,10 +24,34 @@ export default function Show() {
             <Head title={`${pet.name} — Pet`} />
 
             <div className="container mx-auto px-4 py-10">
-                <div className="mb-6">
+                <div className="mb-6 flex items-center justify-between">
                     <Link href="/pets" className="inline-flex items-center gap-2 text-sm text-muted-foreground">
                         <ArrowLeft className="w-4 h-4" /> Back to all pets
                     </Link>
+
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <button className="rounded-full bg-background/80 p-3 shadow hover:bg-red-50"> 
+                                <Heart className="w-5 h-5" />
+                            </button>
+                        </DialogTrigger>
+
+                        <DialogContent className="max-w-md">
+                            <DialogTitle>Saved to favorites</DialogTitle>
+                            <DialogDescription>
+                                <div className="flex gap-4 mt-4">
+                                    <img src={pet.imageUrl} alt={pet.name} className="w-20 h-20 object-cover rounded-lg" />
+                                    <div>
+                                        <div className="font-semibold">{pet.name}</div>
+                                        <div className="text-sm text-muted-foreground">{pet.breed}</div>
+                                        <div className="mt-3">
+                                            <Link href={`/pets/${pet.id}`} className="text-primary">View profile</Link>
+                                        </div>
+                                    </div>
+                                </div>
+                            </DialogDescription>
+                        </DialogContent>
+                    </Dialog>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
