@@ -2,6 +2,7 @@ import { Head, Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import { ArrowLeft, ChevronLeft, ChevronRight, FileText, Phone, Mail, MapPin, Heart } from 'lucide-react';
 import { Dialog, DialogTrigger, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import useFavorites from '@/hooks/use-favorites';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import { mockPets } from '@/data/mockPets';
@@ -29,29 +30,7 @@ export default function Show() {
                         <ArrowLeft className="w-4 h-4" /> Back to all pets
                     </Link>
 
-                    <Dialog>
-                        <DialogTrigger asChild>
-                            <button className="rounded-full bg-background/80 p-3 shadow hover:bg-red-50"> 
-                                <Heart className="w-5 h-5" />
-                            </button>
-                        </DialogTrigger>
-
-                        <DialogContent className="max-w-md">
-                            <DialogTitle>Saved to favorites</DialogTitle>
-                            <DialogDescription>
-                                <div className="flex gap-4 mt-4">
-                                    <img src={pet.imageUrl} alt={pet.name} className="w-20 h-20 object-cover rounded-lg" />
-                                    <div>
-                                        <div className="font-semibold">{pet.name}</div>
-                                        <div className="text-sm text-muted-foreground">{pet.breed}</div>
-                                        <div className="mt-3">
-                                            <Link href={`/pets/${pet.id}`} className="text-primary">View profile</Link>
-                                        </div>
-                                    </div>
-                                </div>
-                            </DialogDescription>
-                        </DialogContent>
-                    </Dialog>
+                    <FavoriteDialog pet={pet} />
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -154,5 +133,47 @@ export default function Show() {
                 </div>
             </div>
         </AppLayout>
+    );
+}
+
+function FavoriteDialog({ pet }: { pet: any }) {
+    const { isFavorite, toggle, remove } = useFavorites();
+    const fav = isFavorite(pet.id);
+
+    return (
+        <Dialog>
+            <DialogTrigger asChild>
+                <button
+                    onClick={(e) => {
+                        // toggle favorite then open dialog
+                        toggle(pet.id);
+                    }}
+                    className="rounded-full bg-background/80 p-3 shadow hover:bg-red-50">
+                    <Heart className="w-5 h-5" />
+                </button>
+            </DialogTrigger>
+
+            <DialogContent className="max-w-md">
+                <DialogTitle>{fav ? 'Saved to favorites' : 'Added to favorites'}</DialogTitle>
+                <DialogDescription>
+                    <div className="flex gap-4 mt-4">
+                        <img src={pet.imageUrl} alt={pet.name} className="w-20 h-20 object-cover rounded-lg" />
+                        <div>
+                            <div className="font-semibold">{pet.name}</div>
+                            <div className="text-sm text-muted-foreground">{pet.breed}</div>
+                            <div className="text-sm text-muted-foreground mt-2">Shelter: {pet.shelterName}</div>
+                            <div className="text-sm text-muted-foreground mt-2">Fee: ${pet.adoptionFee}</div>
+
+                            <div className="mt-4 flex gap-2">
+                                <Link href={`/apply?pet=${pet.id}`} className="inline-block">
+                                    <Button>Apply to Adopt</Button>
+                                </Link>
+                                <Button variant="outline" onClick={() => remove(pet.id)}>Remove</Button>
+                            </div>
+                        </div>
+                    </div>
+                </DialogDescription>
+            </DialogContent>
+        </Dialog>
     );
 }

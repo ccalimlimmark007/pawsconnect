@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Heart, MapPin } from "lucide-react";
 import { Link } from '@inertiajs/react';
+import useFavorites from '@/hooks/use-favorites';
 
 
 interface PetCardProps {
@@ -39,12 +40,8 @@ export function PetCard({ pet, index = 0 }: PetCardProps) {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         
-        <div 
-          className="absolute top-3 right-3 w-10 h-10 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-all duration-300"
-          aria-hidden
-        >
-          <Heart className="w-5 h-5" />
-        </div>
+        {/** favorite button — stopPropagation so link doesn't navigate */}
+        <FavoriteButton petId={pet.id} />
 
         {pet.medicalStatus !== "Healthy" && (
           <Badge variant="secondary" className="absolute top-3 left-3">
@@ -91,5 +88,27 @@ export function PetCard({ pet, index = 0 }: PetCardProps) {
       </div>
     </motion.article>
     </Link>
+  );
+}
+
+function FavoriteButton({ petId }: { petId: string }) {
+  const { isFavorite, toggle } = useFavorites();
+
+  const fav = isFavorite(petId);
+
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        toggle(petId);
+      }}
+      aria-pressed={fav}
+      className={`absolute top-3 right-3 w-10 h-10 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center transition-all duration-300 ${
+        fav ? 'bg-primary text-primary-foreground' : 'hover:bg-primary hover:text-primary-foreground'
+      }`}
+    >
+      <Heart className="w-5 h-5" />
+    </button>
   );
 }
