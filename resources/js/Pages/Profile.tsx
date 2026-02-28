@@ -72,17 +72,23 @@ export default function Profile() {
                 <div className="mx-auto w-full max-w-3xl space-y-6">
                     {/* Status Message */}
                     {showStatus && status && (
-                        <div className={`flex items-center gap-3 rounded-lg border p-4 ${
+                        <div className={`flex items-center gap-3 justify-between rounded-lg border p-4 ${
                             status.includes('No changes') 
                                 ? 'border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200'
                                 : 'border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-200'
                         }`}>
-                            {status.includes('No changes') ? (
-                                <Info className="h-5 w-5" />
-                            ) : (
-                                <CheckCircle className="h-5 w-5" />
-                            )}
-                            <p className="font-medium">{status}</p>
+                            <div className="flex items-center gap-3">
+                                {status.includes('No changes') ? (
+                                    <Info className="h-5 w-5" />
+                                ) : (
+                                    <CheckCircle className="h-5 w-5" />
+                                )}
+                                <p className="font-medium">{status}</p>
+                            </div>
+
+                            <Link href="/">
+                                <Button variant="outline" size="sm">Home</Button>
+                            </Link>
                         </div>
                     )}
 
