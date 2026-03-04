@@ -15,6 +15,11 @@ export const mockPets: Pet[] = [
     description: "Luna is a sunshine in fur form! She loves playing fetch, swimming, and cuddling on the couch. Perfect for an active family.",
     imageUrl: "https://images.unsplash.com/photo-1552053831-71594a27632d?w=600",
     shelterName: "Happy Paws Shelter",
+    shelterContact: { phone: '(555) 234-5678', email: 'adopt@happypaws.org', address: '1234 Pawprint Lane, Portland, OR 97201', hours: 'Mon–Sat 10am–6pm, Sun 12pm–5pm' },
+    medicalHistory: [
+      { title: 'Rabies vaccine (3-year)', note: 'Vaccination • Dr. Sarah Chen', date: '2024-01-10' },
+      { title: 'Annual wellness exam', note: 'Checkup • Dr. Sarah Chen', date: '2023-11-20' }
+    ],
     adoptionFee: 350,
     dateAdded: "2024-01-15",
   },
@@ -32,6 +37,10 @@ export const mockPets: Pet[] = [
     description: "Whiskers is a gentle soul who loves sunny spots and gentle head scratches. He's independent but affectionate.",
     imageUrl: "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=600",
     shelterName: "Feline Friends",
+    shelterContact: { phone: '(555) 987-6543', email: 'hello@felinefriends.org', address: '432 Catwalk Ave, Portland, OR 97202', hours: 'Tue–Sun 10am–5pm' },
+    medicalHistory: [
+      { title: 'Annual wellness exam', note: 'Checkup • Dr. Sarah Chen', date: '2023-09-12' }
+    ],
     adoptionFee: 150,
     dateAdded: "2024-01-20",
   },
@@ -49,6 +58,10 @@ export const mockPets: Pet[] = [
     description: "Max is incredibly smart and loves learning new tricks! He needs an active owner who can keep up with his energy.",
     imageUrl: "https://images.unsplash.com/photo-1503256207526-0d5d80fa2f47?w=600",
     shelterName: "Happy Paws Shelter",
+    shelterContact: { phone: '(555) 234-5678', email: 'adopt@happypaws.org', address: '1234 Pawprint Lane, Portland, OR 97201', hours: 'Mon–Sat 10am–6pm, Sun 12pm–5pm' },
+    medicalHistory: [
+      { title: 'Spay surgery', note: 'Surgery • Dr. Mark Rivera', date: '2023-06-15' }
+    ],
     adoptionFee: 400,
     dateAdded: "2024-02-01",
   },
@@ -66,6 +79,10 @@ export const mockPets: Pet[] = [
     description: "Bella is a regal lady who enjoys quiet afternoons and grooming sessions. She's perfect for a calm household.",
     imageUrl: "https://images.unsplash.com/photo-1592194996308-7b43878e84a6?w=600",
     shelterName: "Feline Friends",
+    shelterContact: { phone: '(555) 987-6543', email: 'hello@felinefriends.org', address: '432 Catwalk Ave, Portland, OR 97202', hours: 'Tue–Sun 10am–5pm' },
+    medicalHistory: [
+      { title: 'Dental cleaning', note: 'Procedure • Dr. Lee', date: '2022-10-10' }
+    ],
     adoptionFee: 200,
     dateAdded: "2024-02-05",
   },
@@ -83,6 +100,10 @@ export const mockPets: Pet[] = [
     description: "Rocky has a heart of gold and a face to match! Currently on allergy medication but don't let that stop you.",
     imageUrl: "https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?w=600",
     shelterName: "Bulldog Rescue",
+    shelterContact: { phone: '(555) 555-1212', email: 'contact@bulldogrescue.org', address: '789 Frenchie Rd, Portland, OR 97203', hours: 'Mon–Fri 9am–5pm' },
+    medicalHistory: [
+      { title: 'Allergy treatment', note: 'Medication • Dr. Patel', date: '2024-02-01' }
+    ],
     adoptionFee: 500,
     dateAdded: "2024-02-10",
   },
@@ -100,6 +121,10 @@ export const mockPets: Pet[] = [
     description: "Cleo is vocal and loves to chat! She's incredibly playful and would love a companion to play with.",
     imageUrl: "https://images.unsplash.com/photo-1513360371669-4adf3dd7dff8?w=600",
     shelterName: "Feline Friends",
+    shelterContact: { phone: '(555) 987-6543', email: 'hello@felinefriends.org', address: '432 Catwalk Ave, Portland, OR 97202', hours: 'Tue–Sun 10am–5pm' },
+    medicalHistory: [
+      { title: 'Deworming', note: 'Medication • Dr. Gomez', date: '2023-12-01' }
+    ],
     adoptionFee: 175,
     dateAdded: "2024-02-12",
   },

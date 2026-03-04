@@ -1,4 +1,5 @@
 <?php
+use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -11,6 +12,20 @@ Route::get('/', function () {
 Route::get('/pets', function () {
     return Inertia::render('Pets/Index');
 })->name('pets.index');
+
+// Pet detail page
+Route::get('/pets/{id}', function ($id) {
+    return Inertia::render('Pets/Show', [
+        'petId' => $id,
+    ]);
+})->name('pets.show');
+
+// Apply form page
+Route::get('/apply', function (Request $request) {
+    return Inertia::render('Pets/Apply', [
+        'pet' => $request->query('pet'),
+    ]);
+})->name('pets.apply');
 
 // 1. The Quiz Page
 Route::get('/quiz', function () {
@@ -51,4 +66,10 @@ Route::middleware(['auth'])->group(function () {
             'status' => session('status'),
         ]);
     })->name('profile');
+});
+
+// Favorites API for authenticated users (JSON only, no Inertia middleware)
+Route::middleware(['auth'])->withoutMiddleware([HandleInertiaRequests::class])->group(function () {
+    Route::get('/favorites', [\App\Http\Controllers\FavoriteController::class, 'index'])->name('favorites.index');
+    Route::post('/favorites/toggle', [\App\Http\Controllers\FavoriteController::class, 'toggle'])->name('favorites.toggle');
 });

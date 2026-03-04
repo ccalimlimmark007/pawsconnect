@@ -1,10 +1,10 @@
+import { Link } from '@inertiajs/react';
 import { motion } from "framer-motion";
-import type { Pet, TemperamentTag } from "@/types/pet";
+import { Heart, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Heart, MapPin } from "lucide-react";
-import { Link } from '@inertiajs/react';
 import useFavorites from '@/hooks/use-favorites';
+import type { Pet, TemperamentTag } from "@/types/pet";
 
 
 interface PetCardProps {
@@ -24,6 +24,8 @@ const tagVariants: Record<TemperamentTag, "energy" | "calm" | "friendly" | "play
 };
 
 export function PetCard({ pet, index = 0 }: PetCardProps) {
+  const { toggle, isFavorite } = useFavorites();
+
   return (
       <motion.article
         initial={{ opacity: 0, y: 20 }}
@@ -31,14 +33,14 @@ export function PetCard({ pet, index = 0 }: PetCardProps) {
         transition={{ duration: 0.5, delay: index * 0.1 }}
         className="group bg-card rounded-2xl overflow-hidden border border-border card-elevated cursor-pointer"
       >
-      <div className="relative aspect-[4/3] overflow-hidden">
+      <div className="relative aspect-4/3 overflow-hidden">
         <Link href={`/pets/${pet.id}`} className="block">
           <img
             src={pet.imageUrl}
             alt={`${pet.name} - ${pet.breed}`}
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          <div className="absolute inset-0 bg-linear-to-t from-foreground/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         </Link>
 
         {/** favorite button — stopPropagation so link doesn't navigate */}
@@ -84,35 +86,48 @@ export function PetCard({ pet, index = 0 }: PetCardProps) {
             <MapPin className="w-4 h-4" />
             <span className="text-xs font-body">{pet.shelterName}</span>
           </div>
-          <Link href={`/pets/${pet.id}`}>
-            <Button variant="soft" size="sm">
-              Meet {pet.name}
-            </Button>
-          </Link>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  toggle(pet.id);
+                }}
+                aria-label="Toggle favorite"
+                className={`inline-flex items-center justify-center w-9 h-9 rounded-md hover:bg-muted/30 ${isFavorite(pet.id) ? 'text-primary' : ''}`}
+              >
+                {isFavorite(pet.id) ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-4 h-4 fill-current">
+                    <path d="M12 21s-7.5-4.9-10-8.2A5.5 5.5 0 0 1 3 7.5C3 5 5 3 7.5 3c1.6 0 3 .9 4.5 2.4C13.5 3.9 14.9 3 16.5 3 19 3 21 5 21 7.5c0 1.9-.7 3.5-1.9 5.3C19.5 16.1 12 21 12 21z" />
+                  </svg>
+                ) : (
+                  <Heart className="w-4 h-4" />
+                )}
+              </button>
+
+              <Link href={`/pets/${pet.id}`}>
+                <Button variant="soft" size="sm">
+                  Meet {pet.name}
+                </Button>
+              </Link>
+            </div>
         </div>
       </div>
+
+      {/* Details moved to the pet detail page. */}
     </motion.article>
   );
 }
 
 function FavoriteButton({ petId }: { petId: string }) {
-  const { isFavorite, toggle } = useFavorites();
-
-  const fav = isFavorite(petId);
-
+  // Clicking the heart navigates to the pet detail page per design
   return (
-    <button
-      onClick={(e) => {
-        e.stopPropagation();
-        e.preventDefault();
-        toggle(petId);
-      }}
-      aria-pressed={fav}
-      className={`absolute top-3 right-3 w-10 h-10 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center transition-all duration-300 ${
-        fav ? 'bg-primary text-primary-foreground' : 'hover:bg-primary hover:text-primary-foreground'
-      }`}
+    <Link
+      href={`/pets/${petId}`}
+      className="absolute top-3 right-3 w-10 h-10 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center transition-all duration-300 hover:bg-primary hover:text-primary-foreground"
+      aria-label="View pet details"
     >
       <Heart className="w-5 h-5" />
-    </button>
+    </Link>
   );
 }
