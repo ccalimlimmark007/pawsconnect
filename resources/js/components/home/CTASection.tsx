@@ -5,14 +5,14 @@ import { ArrowRight, Heart } from "lucide-react";
 
 export function CTASection() {
   return (
-    <section className="py-24 bg-primary relative overflow-hidden">
+    <section className="py-32 bg-primary relative overflow-hidden">
       {/* Background decorations */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-10 left-10 w-32 h-32 rounded-full bg-primary-foreground/10 blur-2xl" />
         <div className="absolute bottom-10 right-20 w-48 h-48 rounded-full bg-accent/20 blur-3xl" />
       </div>
 
-      <div className="container mx-auto px-4 relative">
+      <div className="content-wrapper relative">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}

@@ -45,7 +45,7 @@ export default function Matches() {
       <div className="min-h-screen bg-background">
         <Navbar />
         
-        <main className="container mx-auto px-4 pt-32 pb-20 max-w-5xl">
+        <main className="content-wrapper pt-32 pb-20">
           <div className="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-4">
             <div>
               <Link href="/quiz" className="text-primary flex items-center gap-2 mb-2 hover:underline font-medium">

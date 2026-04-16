@@ -8,15 +8,17 @@ import AppLayout from '@/layouts/app-layout';
 import { mockPets } from '@/data/mockPets';
 import { Dialog, DialogTrigger, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import useFavorites from '@/hooks/use-favorites';
+import type { Pet, TemperamentTag } from '@/types/pet';
 
-export default function Show({ petId }: { petId: string }) {
-    const pet = mockPets.find((p) => p.id === petId);
+export default function Show({ petId, pet: serverPet }: { petId: string; pet?: Pet }) {
+    const [current, setCurrent] = useState(0);
+    const pet = serverPet ?? mockPets.find((p) => String(p.id) === String(petId));
 
     if (!pet) {
         return (
             <AppLayout>
                 <Head title="Pet Not Found" />
-                <div className="container mx-auto px-4 py-12">
+                <div className="content-wrapper py-12">
                     <div className="text-center">
                         <h1 className="text-2xl font-bold mb-4">Pet not found</h1>
                         <Link href="/pets">
@@ -29,9 +31,8 @@ export default function Show({ petId }: { petId: string }) {
     }
 
     const images = [pet.imageUrl, pet.imageUrl + '&ixlib=rb-1.2.1&q=80', pet.imageUrl + '&crop=entropy&w=800'];
-    const [current, setCurrent] = useState(0);
 
-    const tagVariants: Record<any, { color: string; bgColor: string }> = {
+    const tagVariants: Record<TemperamentTag, { color: string; bgColor: string }> = {
         "High Energy": { color: "text-orange-700", bgColor: "bg-orange-100" },
         "Calm": { color: "text-purple-700", bgColor: "bg-purple-100" },
         "Good with Kids": { color: "text-green-700", bgColor: "bg-green-100" },
@@ -44,7 +45,7 @@ export default function Show({ petId }: { petId: string }) {
 
     const pickMedicalIcon = (title: string) => {
         const t = title?.toLowerCase() || '';
-        if (t.includes('vaccine') || t.includes('vaccin')) return <Syringe className="w-4 h-4 text-blue-600" />;
+        if (t.includes('vaccine') || t.includes('vaccination')) return <Syringe className="w-4 h-4 text-blue-600" />;
         if (t.includes('surgery')) return <Activity className="w-4 h-4 text-red-600" />;
         if (t.includes('exam') || t.includes('wellness') || t.includes('check')) return <Stethoscope className="w-4 h-4 text-green-600" />;
         return <Sparkles className="w-4 h-4 text-purple-600" />;
@@ -54,7 +55,7 @@ export default function Show({ petId }: { petId: string }) {
             <AppLayout>
                 <Head title={`${pet.name} — Pet`} />
 
-                <div className="container mx-auto px-4 py-12">
+                <div className="content-wrapper py-12">
                     <div className="mb-6">
                         <Link href="/pets" className="inline-flex items-center gap-3 text-sm text-muted-foreground">
                             <ArrowLeft className="w-4 h-4" /> Back to all pets
@@ -195,8 +196,14 @@ export default function Show({ petId }: { petId: string }) {
                                 </CardHeader>
                                 <CardContent>
                                     <div className="space-y-4">
-                                        {pet.medicalHistory && pet.medicalHistory.length > 0 ? (
-                                            pet.medicalHistory.map((record: any, i: number) => (
+                                        {(() => {
+                                            const medicalHistory = pet.medicalHistory ?? [];
+
+                                            if (medicalHistory.length === 0) {
+                                                return <div className="text-sm text-muted-foreground">No medical records available.</div>;
+                                            }
+
+                                            return medicalHistory.map((record, i: number) => (
                                                 <div key={i}>
                                                     <div className="flex items-start gap-4">
                                                         <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">{pickMedicalIcon(record.title)}</div>
@@ -208,12 +215,10 @@ export default function Show({ petId }: { petId: string }) {
                                                             <p className="text-xs text-muted-foreground">{record.note}</p>
                                                         </div>
                                                     </div>
-                                                    {i < pet.medicalHistory.length - 1 && <Separator className="mt-4" />}
+                                                    {i < medicalHistory.length - 1 && <Separator className="mt-4" />}
                                                 </div>
-                                            ))
-                                        ) : (
-                                            <div className="text-sm text-muted-foreground">No medical records available.</div>
-                                        )}
+                                            ));
+                                        })()}
                                     </div>
                                 </CardContent>
                             </Card>
@@ -265,7 +270,7 @@ export default function Show({ petId }: { petId: string }) {
         );
 }
 
-function FavoriteDialog({ pet }: { pet: any }) {
+    function FavoriteDialog({ pet }: { pet: Pet }) {
     const { isFavorite, toggle, remove } = useFavorites();
     const fav = isFavorite(pet.id);
 
@@ -273,7 +278,7 @@ function FavoriteDialog({ pet }: { pet: any }) {
         <Dialog>
             <DialogTrigger asChild>
                 <button
-                    onClick={(e) => {
+                    onClick={() => {
                         // toggle favorite then open dialog
                         toggle(pet.id);
                     }}

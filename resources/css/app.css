@@ -31,6 +31,9 @@
 
     /* Custom Radius */
     --radius-lg: 0.75rem;
+
+    /* Container Configuration */
+    --maxWidth-content: 1200px;
 }
 
 /* Base Styles */
@@ -51,4 +54,24 @@
 @utility card-elevated {
     box-shadow: 0 4px 20px -4px hsl(25 20% 15% / 0.08);
     transition: all 0.3s ease;
+}
+
+/* Content Container - Centered with Max Width and Responsive Padding */
+@utility content-wrapper {
+    width: 100%;
+    max-width: var(--maxWidth-content);
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1.5rem; /* 24px on mobile */
+    padding-right: 1.5rem;
+
+    @media (min-width: 640px) {
+        padding-left: 2rem; /* 32px on tablets */
+        padding-right: 2rem;
+    }
+
+    @media (min-width: 1024px) {
+        padding-left: 50px; /* 50px on desktop */
+        padding-right: 50px;
+    }
 }

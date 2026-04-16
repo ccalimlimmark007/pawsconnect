@@ -29,7 +29,12 @@ export default function useFavorites() {
     let mounted = true;
     async function fetchServer() {
       try {
-        const res = await fetch('/favorites');
+        const res = await fetch('/api/favorites', {
+          headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+        });
         if (!mounted) return;
         if (res.ok) {
           const json = await res.json();
@@ -64,9 +69,11 @@ export default function useFavorites() {
     // If server source is available, call server API
     if (source === 'server') {
       try {
-        const res = await fetch('/favorites/toggle', {
+        const res = await fetch('/api/favorites/toggle', {
           method: 'POST',
           headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
             'Content-Type': 'application/json',
             'X-CSRF-TOKEN': getCsrfToken(),
           },

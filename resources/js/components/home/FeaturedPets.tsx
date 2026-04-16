@@ -9,8 +9,8 @@ export function FeaturedPets() {
   const featuredPets = mockPets.slice(0, 3);
 
   return (
-    <section className="py-24 bg-background">
-      <div className="container mx-auto px-4">
+    <section className="py-32 bg-background">
+      <div className="content-wrapper">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}

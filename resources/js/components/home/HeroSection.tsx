@@ -1,8 +1,7 @@
-import { motion } from "framer-motion";
 import { Link } from "@inertiajs/react";
-import { Button } from "@/components/ui/button";
+import { motion } from "framer-motion";
 import { ArrowRight, Sparkles } from "lucide-react";
-const heroPets = "https://images.unsplash.com/photo-1552053831-71594a27632d?w=600";
+import { Button } from "@/components/ui/button";
 
 export function HeroSection() {
   return (
@@ -14,7 +13,7 @@ export function HeroSection() {
         <div className="absolute top-1/2 left-1/3 w-48 h-48 rounded-full bg-secondary/20 blur-2xl animate-float" style={{ animationDelay: "4s" }} />
       </div>
 
-      <div className="container mx-auto px-4 py-20">
+      <div className="w-full mx-auto max-w-7xl py-12 lg:py-24 px-4 lg:px-8">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           {/* Left: Text Content */}
           <motion.div
@@ -78,13 +77,13 @@ export function HeroSection() {
             transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
             className="relative"
           >
-            <div className="relative rounded-3xl overflow-hidden shadow-2xl">
+            <div className="relative rounded-3xl overflow-hidden shadow-2xl max-w-lg mx-auto aspect-4/3">
               <img
                 src="https://images.unsplash.com/photo-1552053831-71594a27632d?w=600"
                 alt="Adorable dog and cat waiting for adoption"
-                className="w-full h-auto object-cover"
+                className="absolute inset-0 h-full w-full object-cover"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-background/40 to-transparent" />
+              <div className="absolute inset-0 bg-linear-to-t from-background/40 to-transparent" />
             </div>
 
             {/* Floating card */}

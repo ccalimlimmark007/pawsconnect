@@ -98,7 +98,7 @@ const handleFinish = async () => {
       <div className="min-h-screen bg-background flex flex-col">
         <Navbar />
         
-        <main className="flex-1 container mx-auto px-4 pt-32 pb-20 max-w-2xl">
+        <main className="flex-1 content-wrapper pt-32 pb-20">
           <div className="mb-12">
             <div className="flex justify-between items-end mb-4">
               <div>

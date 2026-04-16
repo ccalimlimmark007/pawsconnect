@@ -12,6 +12,19 @@ export type Species = "Dog" | "Cat" | "Rabbit" | "Bird" | "Other";
 
 export type MedicalStatus = "Healthy" | "Under Treatment" | "Special Needs";
 
+export interface MedicalRecord {
+  title: string;
+  note: string;
+  date: string;
+}
+
+export interface ShelterContact {
+  phone: string;
+  email: string;
+  address: string;
+  hours: string;
+}
+
 export interface Pet {
   id: string;
   name: string;
@@ -19,15 +32,21 @@ export interface Pet {
   breed: string;
   age: number;
   ageUnit: "months" | "years";
-  gender: "Male" | "Female";
-  size: "Small" | "Medium" | "Large";
+  gender: "Male" | "Female" | "Unknown";
+  size: "Small" | "Medium" | "Large" | "Extra Large";
+  color?: string;
+  weight?: number;
   temperamentTags: TemperamentTag[];
   medicalStatus: MedicalStatus;
   description: string;
   imageUrl: string;
   shelterName: string;
+  shelterContact?: ShelterContact;
+  medicalHistory?: MedicalRecord[];
   adoptionFee: number;
-  dateAdded: string;
+  dateAdded?: string;
+  datePosted?: string;
+  availabilityStatus?: boolean;
 }
 
 export interface Adopter {
