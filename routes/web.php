@@ -191,6 +191,9 @@ Route::middleware(['auth'])->group(function () {
             'userPets' => $userPets,
         ]);
     })->name('profile');
+
+    Route::delete('/profile/pets/{id}', [\App\Http\Controllers\Api\PetController::class, 'destroy'])
+        ->name('profile.pets.destroy');
 });
 
 // Favorites API (JSON only)

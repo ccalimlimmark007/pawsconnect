@@ -1,4 +1,4 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { CheckCircle, Info, User, FileText, Plus, Eye, PawPrint, X, Upload, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -40,7 +40,6 @@ export default function Profile() {
     const [deletingPetId, setDeletingPetId] = useState<string | null>(null);
     const {
         updatePet,
-        deletePet,
         loading: updateLoading,
         error: updateError,
         success: updateSuccess,
@@ -209,18 +208,20 @@ export default function Profile() {
 
         setDeletingPetId(pet.id);
 
-        const wasDeleted = await deletePet(pet.id);
+        router.delete(`/profile/pets/${pet.id}`, {
+            preserveScroll: true,
+            onSuccess: () => {
+                setPets((prevPets) => prevPets.filter((item) => item.id !== pet.id));
+                setDeleteSuccessMessage(`${pet.name} has been deleted.`);
 
-        if (wasDeleted) {
-            setPets((prevPets) => prevPets.filter((item) => item.id !== pet.id));
-            setDeleteSuccessMessage(`${pet.name} has been deleted.`);
-
-            if (editingPetId === pet.id) {
-                handleCancelEdit();
-            }
-        }
-
-        setDeletingPetId(null);
+                if (editingPetId === pet.id) {
+                    handleCancelEdit();
+                }
+            },
+            onFinish: () => {
+                setDeletingPetId(null);
+            },
+        });
     };
 
     return (

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\Pet;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -278,31 +279,44 @@ class PetController extends Controller
      * @param string $id Pet ID
      * @return JsonResponse
      */
-    public function destroy(Request $request, string $id): JsonResponse
+    public function destroy(Request $request, string $id): JsonResponse|RedirectResponse
     {
+        $wantsJson = $request->expectsJson() || $request->is('api/*');
         $user = $request->user();
 
         if (!$user) {
-            return response()->json([
-                'message' => 'Unauthenticated.',
-                'errors' => ['auth' => ['You must be logged in to delete pets.']]
-            ], 401);
+            if ($wantsJson) {
+                return response()->json([
+                    'message' => 'Unauthenticated.',
+                    'errors' => ['auth' => ['You must be logged in to delete pets.']]
+                ], 401);
+            }
+
+            return redirect()->route('login');
         }
 
         $pet = Pet::find($id);
 
         if (!$pet) {
-            return response()->json([
-                'message' => 'Pet not found.',
-                'errors' => ['pet' => ['The pet you are trying to delete does not exist.']]
-            ], 404);
+            if ($wantsJson) {
+                return response()->json([
+                    'message' => 'Pet not found.',
+                    'errors' => ['pet' => ['The pet you are trying to delete does not exist.']]
+                ], 404);
+            }
+
+            return redirect()->route('profile')->with('status', 'Pet not found.');
         }
 
         if ((int) $pet->created_by !== (int) $user->id) {
-            return response()->json([
-                'message' => 'Unauthorized.',
-                'errors' => ['authorization' => ['You do not have permission to delete this pet.']]
-            ], 403);
+            if ($wantsJson) {
+                return response()->json([
+                    'message' => 'Unauthorized.',
+                    'errors' => ['authorization' => ['You do not have permission to delete this pet.']]
+                ], 403);
+            }
+
+            return redirect()->route('profile')->with('status', 'You do not have permission to delete this pet.');
         }
 
         try {
@@ -324,14 +338,22 @@ class PetController extends Controller
                 $pet->delete();
             });
 
-            return response()->json([
-                'message' => 'Pet deleted successfully.'
-            ], 200);
+            if ($wantsJson) {
+                return response()->json([
+                    'message' => 'Pet deleted successfully.'
+                ], 200);
+            }
+
+            return redirect()->route('profile')->with('status', 'Pet deleted successfully.');
         } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'An error occurred while deleting the pet.',
-                'errors' => ['database' => [$e->getMessage()]]
-            ], 500);
+            if ($wantsJson) {
+                return response()->json([
+                    'message' => 'An error occurred while deleting the pet.',
+                    'errors' => ['database' => [$e->getMessage()]]
+                ], 500);
+            }
+
+            return redirect()->route('profile')->with('status', 'An error occurred while deleting the pet.');
         }
     }
 }
