@@ -1,56 +1,138 @@
-name: tests
+name: CI
 
 on:
   push:
-    branches:
-      - develop
-      - main
-      - master
-      - workos
+    branches: [main]
   pull_request:
-    branches:
-      - develop
-      - main
-      - master
-      - workos
+    branches: [main]
 
 jobs:
-  ci:
+  # ── 1. Pest tests ───────────────────────────────────────────────────────────
+  tests:
+    name: Tests (PHP ${{ matrix.php }})
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        php-version: ['8.4', '8.5']
+        php: ['8.2', '8.4']
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+      - uses: shivammathur/setup-php@v2
         with:
-          php-version: ${{ matrix.php-version }}
+          php-version: ${{ matrix.php }}
+          extensions: pdo_sqlite, sqlite3
           tools: composer:v2
-          coverage: xdebug
+          coverage: none
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: npm
 
-      - name: Install Node Dependencies
-        run: npm i
-
-      - name: Install Dependencies
+      - name: Install PHP dependencies
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
 
-      - name: Copy Environment File
-        run: cp .env.example .env
+      - name: Install Node dependencies
+        run: npm ci
 
-      - name: Generate Application Key
-        run: php artisan key:generate
+      - name: Set up environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
 
-      - name: Build Assets
-        run: npm run build
+      - name: Run Pest
+        run: ./vendor/bin/pest --ci
 
-      - name: Tests
-        run: ./vendor/bin/pest
+  # ── 2. PHP code style (Pint --test — read-only, fails on violations) ────────
+  php-style:
+    name: PHP Code Style
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer:v2
+          coverage: none
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --no-scripts
+
+      - name: Pint (dry run)
+        run: ./vendor/bin/pint --test
+
+  # ── 3. TypeScript type checking ─────────────────────────────────────────────
+  typescript:
+    name: TypeScript
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run types
+
+  # ── 4. ESLint ───────────────────────────────────────────────────────────────
+  lint:
+    name: JS/TS Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: ESLint
+        run: npm run lint:check
+
+  # ── 5. Coverage (PHP 8.4 + PCOV, min 70%) ───────────────────────────────────
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_sqlite, sqlite3
+          tools: composer:v2
+          coverage: pcov
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Set up environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Run tests with coverage (min 70%)
+        run: ./vendor/bin/pest --coverage --min=70 --coverage-clover=build/coverage.xml
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: build/coverage.xml
+          retention-days: 14

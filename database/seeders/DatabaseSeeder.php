@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
+use App\Enums\Role;
 use App\Models\User;
-// use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
@@ -13,11 +13,21 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        User::firstOrCreate(
+            ['email' => 'admin@pawsconnect.com'],
+            ['name' => 'Admin User', 'password' => bcrypt('password'), 'role' => Role::Admin]
+        );
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        User::firstOrCreate(
+            ['email' => 'shelter@pawsconnect.com'],
+            ['name' => 'Shelter Staff', 'password' => bcrypt('password'), 'role' => Role::ShelterStaff]
+        );
+
+        User::firstOrCreate(
+            ['email' => 'test@example.com'],
+            ['name' => 'Test Adopter', 'password' => bcrypt('password'), 'role' => Role::Adopter]
+        );
+
+        $this->call(PetSeeder::class);
     }
 }

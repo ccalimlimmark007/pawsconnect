@@ -13,7 +13,20 @@ return [
     |
     */
 
-    'default' => env('FILESYSTEM_DISK', 'local'),
+    'default' => env('FILESYSTEM_DISK', 'public'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Upload Disk
+    |--------------------------------------------------------------------------
+    |
+    | Controls which disk is used for user-uploaded files (pet images, etc.).
+    | Set STORAGE_DISK=public for local development (files served via symlink),
+    | or STORAGE_DISK=s3 for production (files served directly from S3/R2).
+    |
+    */
+
+    'upload_disk' => env('STORAGE_DISK', 'public'),
 
     /*
     |--------------------------------------------------------------------------

@@ -1,12 +1,11 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { CheckCircle, Info, User, FileText, Plus, Eye, PawPrint, X, Upload, Trash2 } from 'lucide-react';
+import { CheckCircle, Info, User, PawPrint, Heart, Settings, ClipboardList, Clock, CheckCircle2, XCircle, Calendar, AlertCircle, CalendarCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import useFavorites from '@/hooks/use-favorites';
 
 import { Button } from '@/components/ui/button';
-import { usePetEdit } from '@/hooks/use-pet-edit';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
-import type { Pet } from '@/types/pet';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -15,79 +14,119 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
+type FavoritePet = {
+    id: string;
+    name: string;
+    species: string;
+    breed: string;
+    age: number;
+    ageUnit: string;
+    imageUrl: string | null;
+    adoptionFee: number;
+    shelterName: string | null;
+};
+
+type ShelterVisit = {
+    id: number;
+    petId: string;
+    petName: string | null;
+    petImage: string | null;
+    visitDate: string;
+    visitTime: string;
+    status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
+    message: string | null;
+};
+
+type Application = {
+    id: number;
+    status: string;
+    createdAt: string | null;
+    reviewedAt: string | null;
+    reviewedBy: string | null;
+    pet: { id: string; name: string; species: string; imageUrl: string | null } | null;
+    notes: string | null;
+    rejectedReason: string | null;
+    homeVisit: {
+        visitDateFormatted: string;
+        status: 'scheduled' | 'completed' | 'cancelled';
+        assignedStaffName: string | null;
+        notes: string | null;
+    } | null;
+};
+
+const appStatusConfig: Record<string, { label: string; color: string; icon: React.ElementType }> = {
+    started:  { label: 'Draft',        color: 'text-gray-600 dark:text-gray-400',    icon: Clock },
+    pending:  { label: 'Under Review', color: 'text-yellow-700 dark:text-yellow-400', icon: Clock },
+    approved: { label: 'Approved',     color: 'text-green-700 dark:text-green-400',   icon: CheckCircle2 },
+    rejected: { label: 'Not Approved', color: 'text-red-700 dark:text-red-400',       icon: XCircle },
+};
+
+const appBadgeColors: Record<string, string> = {
+    started:  'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200',
+    pending:  'bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-200',
+    approved: 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200',
+    rejected: 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200',
+};
+
 export default function Profile() {
     const props = usePage().props;
-    const { auth, status, userPets } = props as { 
-        auth?: { user?: { 
-            name: string; 
-            email: string; 
-            created_at: string; 
-            email_verified_at?: string 
-        } }; 
+    const { auth, status, adopterProfile, applications: rawApplications, favoritePets: rawFavoritePets, shelterVisits: rawShelterVisits } = props as {
+        auth?: { user?: {
+            name: string;
+            email: string;
+            role?: string;
+            created_at: string;
+            email_verified_at?: string;
+        } };
         status?: string;
-        userPets?: Pet[];
+        adopterProfile?: AdopterProfile | null;
+        applications?: Application[];
+        favoritePets?: FavoritePet[];
+        shelterVisits?: ShelterVisit[];
     };
-    
-    type EditFormData = Record<string, string | number | boolean | undefined>;
+
+    type AdopterProfile = {
+        home_type?: string | null;
+        has_yard?: boolean | null;
+        activity_level?: string | null;
+        experience_level?: string | null;
+        preferred_species?: string[];
+        preferred_size?: string[];
+    };
 
     const [showStatus, setShowStatus] = useState(!!status);
-    const [editingPetId, setEditingPetId] = useState<string | null>(null);
-    const [editFormData, setEditFormData] = useState<EditFormData>({});
-    const [editImageFile, setEditImageFile] = useState<File | null>(null);
-    const [editImagePreview, setEditImagePreview] = useState<string>('');
-    const [pets, setPets] = useState<Pet[]>(Array.isArray(userPets) ? userPets : []);
-    const [deleteSuccessMessage, setDeleteSuccessMessage] = useState<string | null>(null);
-    const [deletingPetId, setDeletingPetId] = useState<string | null>(null);
-    const {
-        updatePet,
-        loading: updateLoading,
-        error: updateError,
-        success: updateSuccess,
-        clearError: clearUpdateError,
-        clearSuccess: clearUpdateSuccess,
-    } = usePetEdit();
+    const applications   = Array.isArray(rawApplications)   ? rawApplications   : [];
+    const shelterVisits  = Array.isArray(rawShelterVisits)  ? rawShelterVisits  : [];
+    const { toggle } = useFavorites();
+
+    // Seed from server (always accurate on page load); removals update optimistically.
+    const [displayedFavs, setDisplayedFavs] = useState<FavoritePet[]>(
+        Array.isArray(rawFavoritePets) ? rawFavoritePets : []
+    );
+
+    const handleRemoveFavorite = (pet: FavoritePet) => {
+        setDisplayedFavs(prev => prev.filter(p => p.id !== pet.id));
+        void toggle(pet.id, pet.name);
+    };
+
+    const user = auth?.user;
 
     useEffect(() => {
         if (status) {
-            const timer = setTimeout(() => {
-                setShowStatus(false);
-            }, 5000);
+            const timer = setTimeout(() => setShowStatus(false), 5000);
             return () => clearTimeout(timer);
         }
     }, [status]);
 
+    // Poll every 30 s so status changes made by staff (pending → confirmed) are
+    // reflected without the user needing to manually refresh.
     useEffect(() => {
-        if (updateError) {
-            const timer = setTimeout(clearUpdateError, 5000);
-            return () => clearTimeout(timer);
-        }
-    }, [updateError, clearUpdateError]);
-
-    useEffect(() => {
-        if (updateSuccess) {
-            setTimeout(() => {
-                setEditingPetId(null);
-                setEditFormData({});
-                setEditImageFile(null);
-                setEditImagePreview('');
-            }, 1500);
-        }
-    }, [updateSuccess]);
-
-    useEffect(() => {
-        if (deleteSuccessMessage) {
-            const timer = setTimeout(() => {
-                setDeleteSuccessMessage(null);
-            }, 5000);
-
-            return () => clearTimeout(timer);
-        }
-    }, [deleteSuccessMessage]);
-
-    const user = auth?.user;
-
-    // Debug log
-    console.log('Profile Page Props:', { auth, user, status, userPets });
+        if (user?.role !== 'adopter' || shelterVisits.length === 0) return;
+        const id = setInterval(() => {
+            router.reload({ only: ['shelterVisits'] });
+        }, 30_000);
+        return () => clearInterval(id);
+    }, [user?.role, shelterVisits.length]);
 
     if (!user) {
         return (
@@ -103,126 +142,12 @@ export default function Profile() {
         );
     }
 
-    // Format the date
-    const formatDate = (dateString: string) => {
-        return new Date(dateString).toLocaleDateString('en-US', {
+    const formatDate = (dateString: string) =>
+        new Date(dateString).toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'long',
             day: 'numeric',
         });
-    };
-
-    // Handle edit button click
-    const handleEditClick = (pet: Pet) => {
-        setEditingPetId(pet.id);
-        setEditFormData({
-            name: pet.name,
-            breed: pet.breed,
-            age: pet.age,
-            age_unit: pet.ageUnit || 'years',
-            gender: pet.gender,
-            size: pet.size,
-            color: pet.color || '',
-            availability_status: pet.availabilityStatus,
-        });
-        setEditImagePreview(pet.imageUrl || '');
-        setEditImageFile(null);
-    };
-
-    // Handle edit form input change
-    const handleEditInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        const { name, value, type } = e.target;
-        setEditFormData(prev => ({
-            ...prev,
-            [name]: type === 'number' ? (value === '' ? undefined : parseFloat(value)) : value,
-        }));
-    };
-
-    const getTextValue = (key: string): string => {
-        const value = editFormData[key];
-        return typeof value === 'string' || typeof value === 'number' ? String(value) : '';
-    };
-
-    const getNumberValue = (key: string): number | '' => {
-        const value = editFormData[key];
-        return typeof value === 'number' ? value : '';
-    };
-
-    const getBooleanValue = (key: string, fallback = true): boolean => {
-        const value = editFormData[key];
-        return typeof value === 'boolean' ? value : fallback;
-    };
-
-    // Handle edit image change
-    const handleEditImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            setEditImageFile(file);
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setEditImagePreview(reader.result as string);
-            };
-            reader.readAsDataURL(file);
-        }
-    };
-
-    // Clear edit image
-    const clearEditImage = () => {
-        const pet = pets.find(p => p.id === editingPetId);
-        setEditImageFile(null);
-        setEditImagePreview(pet?.imageUrl || '');
-    };
-
-    // Handle edit form submit
-    const handleEditSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        
-        if (!editingPetId) return;
-
-        const submitData: Record<string, string | number | boolean | File | undefined> = {
-            ...editFormData,
-        };
-
-        if (editImageFile) {
-            submitData.image = editImageFile;
-        }
-
-        await updatePet(editingPetId, submitData);
-    };
-
-    // Handle cancel edit
-    const handleCancelEdit = () => {
-        setEditingPetId(null);
-        setEditFormData({});
-        setEditImageFile(null);
-        setEditImagePreview('');
-        clearUpdateSuccess();
-    };
-
-    const handleDeletePet = async (pet: Pet) => {
-        const confirmed = window.confirm(`Delete ${pet.name}? This action cannot be undone.`);
-
-        if (!confirmed) {
-            return;
-        }
-
-        setDeletingPetId(pet.id);
-
-        router.delete(`/profile/pets/${pet.id}`, {
-            preserveScroll: true,
-            onSuccess: () => {
-                setPets((prevPets) => prevPets.filter((item) => item.id !== pet.id));
-                setDeleteSuccessMessage(`${pet.name} has been deleted.`);
-
-                if (editingPetId === pet.id) {
-                    handleCancelEdit();
-                }
-            },
-            onFinish: () => {
-                setDeletingPetId(null);
-            },
-        });
-    };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -252,368 +177,350 @@ export default function Profile() {
                         </div>
                     )}
 
-                    {deleteSuccessMessage && (
-                        <div className="mb-6 rounded-lg border border-green-200 bg-green-50 p-4 text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-200">
-                            <div className="flex items-center gap-3">
-                                <CheckCircle className="h-5 w-5" />
-                                <p className="font-medium">{deleteSuccessMessage}</p>
-                            </div>
-                        </div>
-                    )}
-
-                    {updateError && (
-                        <div className="mb-6 rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-destructive">
-                            <div className="flex items-center gap-3">
-                                <Info className="h-5 w-5" />
-                                <p className="font-medium">{updateError}</p>
-                            </div>
-                        </div>
-                    )}
-
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        {/* Left profile card */}
-                        <div className="rounded-xl border border-sidebar-border/70 bg-card p-6">
-                            <div className="flex flex-col items-center text-center">
-                                <div className="mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                                    <User className="h-12 w-12" />
-                                </div>
-                                <h2 className="text-xl font-semibold">{user.name}</h2>
-                                <p className="text-sm text-muted-foreground mt-2">{user.email}</p>
-
-                                <div className="my-4 w-full border-t pt-4 text-sm text-muted-foreground">
-                                    <div className="mb-2">Joined {formatDate(user.created_at)}</div>
-                                    <div>{pets.length} pet{pets.length !== 1 ? 's posted' : ' posted'}</div>
-                                </div>
-
-                                <div className="w-full space-y-3">
-                                    <Link href="/settings/profile">
-                                        <Button className="w-full" variant="ghost">Update Preferences</Button>
-                                    </Link>
-                                    <Link href="/pets">
-                                        <Button className="w-full" variant="outline">Browse Pets</Button>
-                                    </Link>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Right column with two sections */}
-                        <div className="lg:col-span-2 flex flex-col gap-6">
-                            {/* My Applications section */}
-                            <div className="rounded-xl border border-sidebar-border/70 bg-card p-8">
-                                <h3 className="mb-6 text-lg font-semibold">My Applications</h3>
-                                <div className="flex flex-col items-center justify-center py-12">
-                                    <FileText className="mb-4 h-12 w-12 text-muted-foreground" />
-                                    <h4 className="mb-1 text-lg font-medium">No applications yet</h4>
-                                    <p className="text-sm text-muted-foreground mb-6">Take the quiz to find your perfect pet match!</p>
-                                    <Link href="/quiz">
-                                        <Button className="shadow-md bg-primary text-white">Find My Match</Button>
-                                    </Link>
-                                </div>
-                            </div>
-
-                            {/* My Listed Pets section */}
-                            <div className="rounded-xl border border-sidebar-border/70 bg-card p-8">
-                                <div className="flex items-center justify-between mb-6">
-                                    <h3 className="text-lg font-semibold flex items-center gap-2">
-                                        <PawPrint className="h-5 w-5 text-primary" />
-                                        My Listed Pets
-                                    </h3>
-                                    <Link href="/post-pet">
-                                        <Button size="sm" className="gap-2">
-                                            <Plus className="h-4 w-4" />
-                                            Post New Pet
-                                        </Button>
-                                    </Link>
-                                </div>
-
-                                {pets.length > 0 ? (
-                                    <div className="space-y-4">
-                                        {pets.map((pet) => (
-                                            editingPetId === pet.id ? (
-                                                // Edit Form
-                                                <div key={pet.id} className="border border-border rounded-lg p-6 bg-secondary/20">
-                                                    <h4 className="font-semibold text-lg mb-4">Edit {pet.name}</h4>
-
-                                                    {updateError && (
-                                                        <div className="mb-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
-                                                            {updateError}
-                                                        </div>
-                                                    )}
-
-                                                    {updateSuccess && (
-                                                        <div className="mb-4 p-3 rounded-lg bg-green-100 border border-green-300 text-green-800 dark:bg-green-950 dark:border-green-800 dark:text-green-200 text-sm">
-                                                            Pet updated successfully!
-                                                        </div>
-                                                    )}
-
-                                                    <form onSubmit={handleEditSubmit} className="space-y-4">
-                                                        {/* Image Upload */}
-                                                        <div>
-                                                            <label className="block text-sm font-medium mb-2">Photo</label>
-                                                            <div className="flex gap-3 items-end">
-                                                                <label className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-border rounded-lg p-4 cursor-pointer hover:bg-secondary/10 transition">
-                                                                    <Upload className="w-4 h-4 mb-1 text-muted-foreground" />
-                                                                    <span className="text-xs text-muted-foreground text-center">Click to upload photo</span>
-                                                                    <input
-                                                                        type="file"
-                                                                        accept="image/*"
-                                                                        onChange={handleEditImageChange}
-                                                                        className="hidden"
-                                                                    />
-                                                                </label>
-                                                                {editImagePreview && (
-                                                                    <div className="relative">
-                                                                        <img
-                                                                            src={editImagePreview}
-                                                                            alt="Preview"
-                                                                            className="w-16 h-16 rounded-lg object-cover"
-                                                                        />
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={clearEditImage}
-                                                                            className="absolute -top-2 -right-2 bg-destructive text-white rounded-full p-1"
-                                                                        >
-                                                                            <X className="w-3 h-3" />
-                                                                        </button>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Form Fields */}
-                                                        <div className="grid grid-cols-2 gap-3">
-                                                            <div>
-                                                                <label className="block text-xs font-medium mb-1">Name</label>
-                                                                <input
-                                                                    type="text"
-                                                                    name="name"
-                                                                    value={getTextValue('name')}
-                                                                    onChange={handleEditInputChange}
-                                                                    className="w-full px-2 py-1.5 rounded border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                                                />
-                                                            </div>
-
-                                                            <div>
-                                                                <label className="block text-xs font-medium mb-1">Breed</label>
-                                                                <input
-                                                                    type="text"
-                                                                    name="breed"
-                                                                    value={getTextValue('breed')}
-                                                                    onChange={handleEditInputChange}
-                                                                    className="w-full px-2 py-1.5 rounded border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                                                />
-                                                            </div>
-
-                                                            <div>
-                                                                <label className="block text-xs font-medium mb-1">Age</label>
-                                                                <input
-                                                                    type="number"
-                                                                    name="age"
-                                                                    value={getNumberValue('age')}
-                                                                    onChange={handleEditInputChange}
-                                                                    min="0"
-                                                                    className="w-full px-2 py-1.5 rounded border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                                                />
-                                                            </div>
-
-                                                            <div>
-                                                                <label className="block text-xs font-medium mb-1">Age Unit</label>
-                                                                <select
-                                                                    name="age_unit"
-                                                                    value={getTextValue('age_unit') || 'years'}
-                                                                    onChange={handleEditInputChange}
-                                                                    className="w-full px-2 py-1.5 rounded border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                                                >
-                                                                    <option value="months">Months</option>
-                                                                    <option value="years">Years</option>
-                                                                </select>
-                                                            </div>
-
-                                                            <div>
-                                                                <label className="block text-xs font-medium mb-1">Gender</label>
-                                                                <select
-                                                                    name="gender"
-                                                                    value={getTextValue('gender')}
-                                                                    onChange={handleEditInputChange}
-                                                                    className="w-full px-2 py-1.5 rounded border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                                                >
-                                                                    <option value="">Select</option>
-                                                                    <option value="Male">Male</option>
-                                                                    <option value="Female">Female</option>
-                                                                    <option value="Unknown">Unknown</option>
-                                                                </select>
-                                                            </div>
-
-                                                            <div>
-                                                                <label className="block text-xs font-medium mb-1">Size</label>
-                                                                <select
-                                                                    name="size"
-                                                                    value={getTextValue('size')}
-                                                                    onChange={handleEditInputChange}
-                                                                    className="w-full px-2 py-1.5 rounded border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                                                >
-                                                                    <option value="">Select</option>
-                                                                    <option value="Small">Small</option>
-                                                                    <option value="Medium">Medium</option>
-                                                                    <option value="Large">Large</option>
-                                                                    <option value="Extra Large">Extra Large</option>
-                                                                </select>
-                                                            </div>
-
-                                                            <div>
-                                                                <label className="block text-xs font-medium mb-1">Color</label>
-                                                                <input
-                                                                    type="text"
-                                                                    name="color"
-                                                                    value={getTextValue('color')}
-                                                                    onChange={handleEditInputChange}
-                                                                    className="w-full px-2 py-1.5 rounded border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                                                                />
-                                                            </div>
-
-                                                            <div>
-                                                                <label className="flex items-center gap-2 text-xs font-medium mt-5 cursor-pointer">
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        name="availability_status"
-                                                                        checked={getBooleanValue('availability_status')}
-                                                                        onChange={(e) => setEditFormData(prev => ({ ...prev, availability_status: e.target.checked }))}
-                                                                        className="rounded"
-                                                                    />
-                                                                    Available
-                                                                </label>
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Form Actions */}
-                                                        <div className="flex gap-2 justify-end pt-2">
-                                                            <Button
-                                                                type="button"
-                                                                variant="destructive"
-                                                                size="sm"
-                                                                onClick={() => handleDeletePet(pet)}
-                                                                disabled={updateLoading || deletingPetId === pet.id}
-                                                                className="gap-2"
-                                                            >
-                                                                <Trash2 className="h-4 w-4" />
-                                                                {deletingPetId === pet.id ? 'Deleting...' : 'Delete'}
-                                                            </Button>
-                                                            <Button
-                                                                type="button"
-                                                                variant="outline"
-                                                                size="sm"
-                                                                onClick={handleCancelEdit}
-                                                                disabled={updateLoading}
-                                                            >
-                                                                Cancel
-                                                            </Button>
-                                                            <Button
-                                                                type="submit"
-                                                                size="sm"
-                                                                disabled={updateLoading}
-                                                            >
-                                                                {updateLoading ? 'Updating...' : 'Save Changes'}
-                                                            </Button>
-                                                        </div>
-                                                    </form>
-                                                </div>
-                                            ) : (
-                                                // View Mode
-                                                <div 
-                                                    key={pet.id} 
-                                                    className="flex items-start gap-4 p-4 rounded-lg border border-border/50 hover:bg-secondary/30 transition-colors"
-                                                >
-                                                    {/* Pet Image */}
-                                                    <div className="shrink-0">
-                                                        {pet.imageUrl ? (
-                                                            <img 
-                                                                src={pet.imageUrl} 
-                                                                alt={pet.name}
-                                                                className="w-20 h-20 rounded-lg object-cover"
-                                                            />
-                                                        ) : (
-                                                            <div className="w-20 h-20 rounded-lg bg-secondary flex items-center justify-center">
-                                                                <PawPrint className="h-8 w-8 text-muted-foreground" />
-                                                            </div>
-                                                        )}
-                                                    </div>
-
-                                                    {/* Pet Info */}
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex items-start justify-between gap-4">
-                                                            <div>
-                                                                <h4 className="font-semibold text-base">{pet.name}</h4>
-                                                                <p className="text-sm text-muted-foreground">
-                                                                    {pet.breed} • {pet.species} • {pet.gender}
-                                                                </p>
-                                                                <p className="text-xs text-muted-foreground mt-1">
-                                                                    Posted {pet.datePosted ? formatDate(pet.datePosted) : 'Unknown'}
-                                                                </p>
-                                                            </div>
-
-                                                            {/* Status Badge */}
-                                                            <div className="shrink-0">
-                                                                {pet.availabilityStatus ? (
-                                                                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200">
-                                                                        <span className="w-1.5 h-1.5 rounded-full bg-green-600" />
-                                                                        Available
-                                                                    </span>
-                                                                ) : (
-                                                                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200">
-                                                                        <span className="w-1.5 h-1.5 rounded-full bg-gray-600" />
-                                                                        Adopted
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Actions */}
-                                                        <div className="flex items-center gap-2 mt-3">
-                                                            <Link href={`/pets/${pet.id}`}>
-                                                                <Button size="sm" variant="ghost" className="gap-2">
-                                                                    <Eye className="h-4 w-4" />
-                                                                    View Details
-                                                                </Button>
-                                                            </Link>
-                                                            <Button 
-                                                                size="sm" 
-                                                                variant="ghost" 
-                                                                className="gap-2 text-muted-foreground hover:text-foreground"
-                                                                onClick={() => handleEditClick(pet)}
-                                                                disabled={deletingPetId === pet.id}
-                                                            >
-                                                                Edit
-                                                            </Button>
-                                                            <Button
-                                                                size="sm"
-                                                                variant="ghost"
-                                                                className="gap-2 text-destructive hover:text-destructive"
-                                                                onClick={() => handleDeletePet(pet)}
-                                                                disabled={deletingPetId === pet.id}
-                                                            >
-                                                                <Trash2 className="h-4 w-4" />
-                                                                {deletingPetId === pet.id ? 'Deleting...' : 'Delete'}
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            )
-                                        ))}
+                        {/* Left column: profile card + adoption preferences */}
+                        <div className="flex flex-col gap-6">
+                            {/* Profile card */}
+                            <div className="rounded-xl border border-sidebar-border/70 bg-card p-6">
+                                <div className="flex flex-col items-center text-center">
+                                    <div className="mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                                        <User className="h-12 w-12" />
                                     </div>
-                                ) : (
-                                    <div className="flex flex-col items-center justify-center py-12">
-                                        <PawPrint className="mb-4 h-12 w-12 text-muted-foreground" />
-                                        <h4 className="mb-1 text-lg font-medium">No pets posted yet</h4>
-                                        <p className="text-sm text-muted-foreground mb-6">Help a pet find their forever home!</p>
-                                        <Link href="/post-pet">
-                                            <Button className="shadow-md bg-primary text-white gap-2">
-                                                <Plus className="h-4 w-4" />
-                                                Post Your First Pet
+                                    <h2 className="text-xl font-semibold">{user.name}</h2>
+                                    <p className="text-sm text-muted-foreground mt-2">{user.email}</p>
+
+                                    <div className="my-4 w-full border-t pt-4 text-sm text-muted-foreground">
+                                        <div>Joined {formatDate(user.created_at)}</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Adoption Preferences card — adopter only */}
+                            {user.role === 'adopter' && (
+                                <div className="rounded-xl border border-sidebar-border/70 bg-card p-6">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="text-lg font-semibold flex items-center gap-2">
+                                            <Heart className="h-5 w-5 text-primary" />
+                                            Adoption Preferences
+                                        </h3>
+                                        <Link href="/profile/preferences">
+                                            <Button size="sm" variant="ghost" className="gap-2 text-muted-foreground">
+                                                <Settings className="h-4 w-4" />
+                                                Edit
                                             </Button>
                                         </Link>
                                     </div>
-                                )}
-                            </div>
+                                    {adopterProfile ? (
+                                        <div className="space-y-3 text-sm">
+                                            {(adopterProfile.preferred_species?.length ?? 0) > 0 && (
+                                                <div>
+                                                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Species</span>
+                                                    <div className="mt-1 flex flex-wrap gap-1.5">
+                                                        {adopterProfile.preferred_species!.map(s => (
+                                                            <span key={s} className="px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">{s}</span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {(adopterProfile.preferred_size?.length ?? 0) > 0 && (
+                                                <div>
+                                                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Size</span>
+                                                    <div className="mt-1 flex flex-wrap gap-1.5">
+                                                        {adopterProfile.preferred_size!.map(s => (
+                                                            <span key={s} className="px-2.5 py-1 rounded-full bg-secondary text-secondary-foreground text-xs font-medium">{s}</span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {adopterProfile.home_type && (
+                                                <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+                                                    <span>Home: <strong className="text-foreground capitalize">{adopterProfile.home_type}</strong></span>
+                                                    {adopterProfile.has_yard !== null && adopterProfile.has_yard !== undefined && (
+                                                        <span>Yard: <strong className="text-foreground">{adopterProfile.has_yard ? 'Yes' : 'No'}</strong></span>
+                                                    )}
+                                                    {adopterProfile.activity_level && (
+                                                        <span>Activity: <strong className="text-foreground capitalize">{adopterProfile.activity_level}</strong></span>
+                                                    )}
+                                                </div>
+                                            )}
+                                            <Link href="/pets">
+                                                <Button size="sm" variant="outline" className="mt-2 gap-2 w-full">
+                                                    <PawPrint className="h-4 w-4" />
+                                                    Browse Matched Pets
+                                                </Button>
+                                            </Link>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col items-center py-6 text-center">
+                                            <Heart className="mb-3 h-10 w-10 text-muted-foreground" />
+                                            <p className="text-sm font-medium mb-1">No preferences set yet</p>
+                                            <p className="text-xs text-muted-foreground mb-4">
+                                                Tell us what you're looking for and we'll match you with the right pets.
+                                            </p>
+                                            <Link href="/profile/preferences">
+                                                <Button size="sm" className="gap-2">
+                                                    <Settings className="h-4 w-4" />
+                                                    Set Up Preferences
+                                                </Button>
+                                            </Link>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Right column: applications (top) + favorites (bottom) */}
+                        <div className="lg:col-span-2 flex flex-col gap-6">
+                            {/* My Applications section — adopters only */}
+                            {user.role === 'adopter' && (
+                                <div className="rounded-xl border border-sidebar-border/70 bg-card p-6">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="text-lg font-semibold flex items-center gap-2">
+                                            <ClipboardList className="h-5 w-5 text-primary" />
+                                            My Applications
+                                        </h3>
+                                        {applications.length > 0 && (
+                                            <Link href="/my-applications">
+                                                <Button size="sm" variant="ghost" className="text-muted-foreground gap-1">
+                                                    View All
+                                                </Button>
+                                            </Link>
+                                        )}
+                                    </div>
+
+                                    {applications.length === 0 ? (
+                                        <div className="flex flex-col items-center justify-center py-10">
+                                            <AlertCircle className="mb-4 h-10 w-10 text-muted-foreground" />
+                                            <h4 className="mb-1 text-base font-medium">No applications yet</h4>
+                                            <p className="text-sm text-muted-foreground mb-6">Take the quiz to find your perfect pet match!</p>
+                                            <Link href="/quiz">
+                                                <Button className="shadow-md bg-primary text-white">Find My Match</Button>
+                                            </Link>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {applications.slice(0, 3).map((app) => {
+                                                const cfg = appStatusConfig[app.status] ?? appStatusConfig.started;
+                                                const StatusIcon = cfg.icon;
+                                                return (
+                                                    <div key={app.id} className="rounded-lg border border-border/50 overflow-hidden flex gap-0">
+                                                        {app.pet?.imageUrl && (
+                                                            <div className="w-20 shrink-0 hidden sm:block">
+                                                                <img src={app.pet.imageUrl} alt={app.pet.name} className="h-full w-full object-cover" />
+                                                            </div>
+                                                        )}
+                                                        <div className="flex-1 p-4">
+                                                            <div className="flex items-start justify-between gap-3 flex-wrap">
+                                                                <div>
+                                                                    {app.pet ? (
+                                                                        <>
+                                                                            <Link href={`/pets/${app.pet.id}`} className="font-semibold hover:underline text-sm">{app.pet.name}</Link>
+                                                                            <p className="text-xs text-muted-foreground capitalize">{app.pet.species}</p>
+                                                                        </>
+                                                                    ) : (
+                                                                        <p className="text-sm font-semibold text-muted-foreground">Pet no longer available</p>
+                                                                    )}
+                                                                </div>
+                                                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${appBadgeColors[app.status] ?? ''}`}>
+                                                                    {cfg.label}
+                                                                </span>
+                                                            </div>
+                                                            <div className={`flex items-center gap-1.5 mt-2 text-xs ${cfg.color}`}>
+                                                                <StatusIcon className="h-3.5 w-3.5 shrink-0" />
+                                                                <span>Applied {app.createdAt ?? '—'}</span>
+                                                            </div>
+                                                            {app.homeVisit && app.homeVisit.status !== 'cancelled' && (
+                                                                <div className="mt-2 flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400">
+                                                                    <Calendar className="h-3.5 w-3.5 shrink-0" />
+                                                                    <span>Home visit: {app.homeVisit.visitDateFormatted}</span>
+                                                                </div>
+                                                            )}
+                                                            {app.status === 'started' && app.pet && (
+                                                                <div className="mt-2">
+                                                                    <Link href={`/apply?pet=${app.pet.id}`}>
+                                                                        <Button size="sm" variant="outline" className="h-7 text-xs">Continue Application</Button>
+                                                                    </Link>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                            {applications.length > 3 && (
+                                                <Link href="/my-applications" className="block text-center">
+                                                    <Button variant="outline" size="sm" className="w-full mt-1">
+                                                        View all {applications.length} applications
+                                                    </Button>
+                                                </Link>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* My Visit Requests section — adopters only */}
+                            {user.role === 'adopter' && (
+                                <div className="rounded-xl border border-sidebar-border/70 bg-card p-6">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="text-lg font-semibold flex items-center gap-2">
+                                            <CalendarCheck className="h-5 w-5 text-primary" />
+                                            My Visit Requests
+                                            {shelterVisits.length > 0 && (
+                                                <span className="text-xs font-normal text-muted-foreground">
+                                                    ({shelterVisits.length})
+                                                </span>
+                                            )}
+                                        </h3>
+                                        {shelterVisits.length > 0 && (
+                                            <Link href="/my-visits">
+                                                <button className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                                                    View All
+                                                </button>
+                                            </Link>
+                                        )}
+                                    </div>
+
+                                    {shelterVisits.length === 0 ? (
+                                        <div className="flex flex-col items-center py-6 text-center">
+                                            <CalendarCheck className="mb-3 h-10 w-10 text-muted-foreground" />
+                                            <p className="text-sm font-medium mb-1">No upcoming visits</p>
+                                            <p className="text-xs text-muted-foreground mb-4">
+                                                Book a shelter visit from any pet's page to meet them in person.
+                                            </p>
+                                            <Link href="/pets">
+                                                <button className="inline-flex items-center gap-2 rounded-md border border-input bg-background px-3 py-1.5 text-sm hover:bg-accent transition-colors">
+                                                    <PawPrint className="h-4 w-4" />
+                                                    Browse Pets
+                                                </button>
+                                            </Link>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {shelterVisits.map(visit => {
+                                                const isPending   = visit.status === 'pending';
+                                                const isConfirmed = visit.status === 'confirmed';
+                                                return (
+                                                    <div key={visit.id} className="flex items-center gap-3 rounded-lg border border-border/50 p-3">
+                                                        {/* Pet thumbnail */}
+                                                        <div className="w-12 h-12 shrink-0 rounded-md overflow-hidden bg-secondary">
+                                                            {visit.petImage ? (
+                                                                <img src={visit.petImage} alt={visit.petName ?? ''} className="h-full w-full object-cover" />
+                                                            ) : (
+                                                                <div className="flex h-full w-full items-center justify-center">
+                                                                    <PawPrint className="h-5 w-5 text-muted-foreground" />
+                                                                </div>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Details */}
+                                                        <div className="flex-1 min-w-0">
+                                                            <Link href={`/pets/${visit.petId}`} className="text-sm font-semibold hover:underline truncate block">
+                                                                {visit.petName ?? 'Unknown Pet'}
+                                                            </Link>
+                                                            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+                                                                <Calendar className="h-3 w-3 shrink-0" />
+                                                                <span>{visit.visitDate} at {visit.visitTime}</span>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Status badge */}
+                                                        <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                                                            isPending   ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-950 dark:text-yellow-200' :
+                                                            isConfirmed ? 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200' :
+                                                                          'bg-gray-100 text-gray-600 dark:bg-gray-900 dark:text-gray-400'
+                                                        }`}>
+                                                            {isPending   && <Clock className="h-3 w-3" />}
+                                                            {isConfirmed && <CheckCircle2 className="h-3 w-3" />}
+                                                            {isPending ? 'Pending' : isConfirmed ? 'Confirmed' : visit.status}
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* My Favorites section — adopters only */}
+                            {user.role === 'adopter' && (
+                                <div className="rounded-xl border border-sidebar-border/70 bg-card p-6">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="text-lg font-semibold flex items-center gap-2">
+                                            <Heart className="h-5 w-5 text-primary" />
+                                            My Favorites
+                                            {displayedFavs.length > 0 && (
+                                                <span className="text-xs font-normal text-muted-foreground">
+                                                    ({displayedFavs.length})
+                                                </span>
+                                            )}
+                                        </h3>
+                                        {displayedFavs.length > 0 && (
+                                            <Link href="/my-favorites">
+                                                <Button size="sm" variant="ghost" className="text-muted-foreground gap-1">
+                                                    View All
+                                                </Button>
+                                            </Link>
+                                        )}
+                                    </div>
+
+                                    {displayedFavs.length === 0 ? (
+                                        <div className="flex flex-col items-center py-6 text-center">
+                                            <Heart className="mb-3 h-10 w-10 text-muted-foreground" />
+                                            <p className="text-sm font-medium mb-1">No favorites yet</p>
+                                            <p className="text-xs text-muted-foreground mb-4">
+                                                Tap the heart icon on any pet to save them here.
+                                            </p>
+                                            <Link href="/pets">
+                                                <Button size="sm" variant="outline" className="gap-2">
+                                                    <PawPrint className="h-4 w-4" />
+                                                    Browse Pets
+                                                </Button>
+                                            </Link>
+                                        </div>
+                                    ) : (
+                                        /* Horizontal scroll strip */
+                                        <div className="overflow-x-auto -mx-2 px-2 pb-1">
+                                            <div className="flex gap-3 w-max">
+                                                {displayedFavs.map(pet => (
+                                                    <div key={pet.id} className="relative group w-36 shrink-0 rounded-lg overflow-hidden border border-border/50 bg-background">
+                                                        <Link href={`/pets/${pet.id}`} className="block">
+                                                            <div className="aspect-square overflow-hidden bg-secondary">
+                                                                {pet.imageUrl ? (
+                                                                    <img
+                                                                        src={pet.imageUrl}
+                                                                        alt={pet.name}
+                                                                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                                                    />
+                                                                ) : (
+                                                                    <div className="flex h-full w-full items-center justify-center">
+                                                                        <PawPrint className="h-8 w-8 text-muted-foreground" />
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <div className="p-2.5">
+                                                                <p className="text-sm font-semibold truncate">{pet.name}</p>
+                                                                <p className="text-xs text-muted-foreground truncate capitalize">{pet.species} · {pet.breed}</p>
+                                                                {pet.adoptionFee > 0 && (
+                                                                    <p className="text-xs font-medium text-primary mt-0.5">₱{pet.adoptionFee.toLocaleString()}</p>
+                                                                )}
+                                                            </div>
+                                                        </Link>
+                                                        <button
+                                                            onClick={() => handleRemoveFavorite(pet)}
+                                                            aria-label="Remove from favorites"
+                                                            className="absolute top-2 right-2 w-7 h-7 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-50 dark:hover:bg-rose-950"
+                                                        >
+                                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-3.5 h-3.5 fill-current">
+                                                                <path d="M12 21s-7.5-4.9-10-8.2A5.5 5.5 0 0 1 3 7.5C3 5 5 3 7.5 3c1.6 0 3 .9 4.5 2.4C13.5 3.9 14.9 3 16.5 3 19 3 21 5 21 7.5c0 1.9-.7 3.5-1.9 5.3C19.5 16.1 12 21 12 21z" />
+                                                            </svg>
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

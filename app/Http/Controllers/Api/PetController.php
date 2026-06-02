@@ -2,13 +2,15 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\Role;
 use App\Models\Pet;
+use App\Models\Shelter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 
 class PetController extends Controller
 {
@@ -33,6 +35,7 @@ class PetController extends Controller
 
         // Find the pet
         $pet = Pet::find($id);
+        $wasAvailable = $pet?->availability_status;
 
         // Check if pet exists
         if (!$pet) {
@@ -42,8 +45,8 @@ class PetController extends Controller
             ], 404);
         }
 
-        // Check if user is the owner
-        if ((int) $pet->created_by !== (int) $user->id) {
+        // Admins may edit any pet; shelter staff may only edit their own
+        if (! $user->isAdmin() && (int) $pet->created_by !== (int) $user->id) {
             return response()->json([
                 'message' => 'Unauthorized.',
                 'errors' => ['authorization' => ['You do not have permission to edit this pet.']]
@@ -103,22 +106,41 @@ class PetController extends Controller
         // Update pet in transaction
         try {
             $updatedPet = DB::transaction(function () use ($validated, $pet, $request, $user) {
-                // Handle image upload if provided
-                if ($request->hasFile('image')) {
-                    // Delete old image if it exists
-                    if ($pet->image_url && str_starts_with($pet->image_url, '/storage/')) {
-                        $oldPath = str_replace('/storage/', '', $pet->image_url);
-                        \Illuminate\Support\Facades\Storage::disk('public')->delete($oldPath);
+                // Handle image upload — replaces the current primary image
+                if ($request->hasFile('image') || isset($validated['image_url'])) {
+                    $newUrl = null;
+
+                    if ($request->hasFile('image')) {
+                        $disk   = config('filesystems.upload_disk');
+                        $path   = $request->file('image')->store('pet-images', $disk);
+                        $newUrl = $disk === 'public'
+                            ? '/storage/' . $path
+                            : Storage::disk($disk)->url($path);
+                    } elseif (! empty($validated['image_url'])) {
+                        $newUrl = $validated['image_url'];
                     }
 
-                    // Store new image
-                    $path = $request->file('image')->store('pet-images', 'public');
-                    $validated['image_url'] = '/storage/' . $path;
-                } elseif (isset($validated['image_url']) && $validated['image_url'] === null) {
-                    // If explicitly setting image_url to null, handle accordingly
-                    if ($pet->image_url && str_starts_with($pet->image_url, '/storage/')) {
-                        $oldPath = str_replace('/storage/', '', $pet->image_url);
-                        \Illuminate\Support\Facades\Storage::disk('public')->delete($oldPath);
+                    if ($newUrl) {
+                        $pet->load('petImages');
+
+                        // Delete old primary local file
+                        $oldPrimary = $pet->petImages->firstWhere('is_primary', true);
+                        if ($oldPrimary) {
+                            if (str_starts_with($oldPrimary->url, '/storage/')) {
+                                Storage::disk('public')->delete(str_replace('/storage/', '', $oldPrimary->url));
+                            } elseif (str_starts_with($oldPrimary->url, 'http')) {
+                                $s3Path = ltrim(parse_url($oldPrimary->url, PHP_URL_PATH), '/');
+                                Storage::disk('s3')->delete($s3Path);
+                            }
+                            $oldPrimary->delete();
+                        }
+
+                        $pet->petImages()->update(['is_primary' => false]);
+                        $pet->petImages()->create([
+                            'url'        => $newUrl,
+                            'is_primary' => true,
+                            'order'      => 0,
+                        ]);
                     }
                 }
 
@@ -137,8 +159,12 @@ class PetController extends Controller
                     'is_vetted' => $validated['is_vetted'] ?? $pet->is_vetted,
                     'availability_status' => $validated['availability_status'] ?? $pet->availability_status,
                     'adoption_fee' => $validated['adoption_fee'] ?? $pet->adoption_fee,
-                    'shelter_name' => $validated['shelter_name'] ?? $pet->shelter_name,
-                    'image_url' => $validated['image_url'] ?? $pet->image_url,
+                    'shelter_id'   => isset($validated['shelter_name'])
+                        ? Shelter::firstOrCreate(
+                            ['name' => $validated['shelter_name']],
+                            ['created_by' => $user->id]
+                        )->id
+                        : $pet->shelter_id,
                     'description' => $validated['description'] ?? $pet->description,
                     'temperament_tags' => $validated['temperament_tags'] ?? $pet->temperament_tags,
                     'photos' => $validated['photos'] ?? $pet->photos,
@@ -152,9 +178,13 @@ class PetController extends Controller
 
                 $pet->update($petData);
 
+                // Reload shelter relation in case shelter_id changed
+                $pet->load('shelter');
+
                 // Update shelter contact if provided
-                if (isset($validated['contact'])) {
-                    $shelterContact = $pet->shelterContact ?? $pet->shelterContact()->create(['created_by' => $user->id]);
+                if (isset($validated['contact']) && $pet->shelter) {
+                    $shelterContact = $pet->shelter->shelterContact
+                        ?? $pet->shelter->shelterContact()->create(['created_by' => $user->id]);
 
                     $shelterContact->update([
                         'name' => $validated['contact']['name'] ?? $shelterContact->name,
@@ -184,8 +214,23 @@ class PetController extends Controller
                     }
                 }
 
+                // Explicit log when availability is toggled
+                if (isset($validated['availability_status']) && $validated['availability_status'] !== $wasAvailable) {
+                    $label = $validated['availability_status'] ? 'available' : 'unavailable';
+                    activity('pets')
+                        ->performedOn($pet)
+                        ->causedBy($user)
+                        ->withProperties(['availability_status' => $validated['availability_status']])
+                        ->log("Pet marked as {$label}");
+                }
+
                 return $pet;
             });
+
+            $updatedPet->load(['shelter.shelterContact', 'petImages']);
+
+            $primaryUrl = $updatedPet->petImages->firstWhere('is_primary', true)?->url
+                ?? $updatedPet->petImages->first()?->url;
 
             // Return the updated pet
             return response()->json([
@@ -205,8 +250,8 @@ class PetController extends Controller
                     'isVetted' => $updatedPet->is_vetted,
                     'availabilityStatus' => $updatedPet->availability_status,
                     'adoptionFee' => (float) $updatedPet->adoption_fee,
-                    'shelterName' => $updatedPet->shelter_name,
-                    'imageUrl' => $updatedPet->image_url,
+                    'shelterName' => $updatedPet->shelter?->name,
+                    'imageUrl' => $primaryUrl,
                     'description' => $updatedPet->description,
                     'temperamentTags' => $updatedPet->temperament_tags ?? [],
                     'personalityTraits' => $updatedPet->personality_traits ?? [],
@@ -229,7 +274,7 @@ class PetController extends Controller
      */
     public function show(string $id): JsonResponse
     {
-        $pet = Pet::find($id);
+        $pet = Pet::with(['shelter.shelterContact', 'petImages'])->find($id);
 
         if (!$pet) {
             return response()->json([
@@ -237,6 +282,9 @@ class PetController extends Controller
                 'errors' => ['pet' => ['The requested pet does not exist.']]
             ], 404);
         }
+
+        $primaryUrl = $pet->petImages->firstWhere('is_primary', true)?->url
+            ?? $pet->petImages->first()?->url;
 
         return response()->json([
             'pet' => [
@@ -254,19 +302,19 @@ class PetController extends Controller
                 'isVetted' => $pet->is_vetted,
                 'availabilityStatus' => $pet->availability_status,
                 'adoptionFee' => (float) $pet->adoption_fee,
-                'shelterName' => $pet->shelter_name,
-                'imageUrl' => $pet->image_url,
+                'shelterName' => $pet->shelter?->name,
+                'imageUrl' => $primaryUrl,
                 'description' => $pet->description,
                 'temperamentTags' => $pet->temperament_tags ?? [],
                 'personalityTraits' => $pet->personality_traits ?? [],
                 'datePosted' => optional($pet->created_at)?->toDateString(),
-                'shelterContact' => $pet->shelterContact ? [
-                    'name' => $pet->shelterContact->name,
-                    'phone' => $pet->shelterContact->phone,
-                    'email' => $pet->shelterContact->email,
-                    'website' => $pet->shelterContact->website,
-                    'address' => $pet->shelterContact->address,
-                    'hours' => $pet->shelterContact->hours,
+                'shelterContact' => $pet->shelter?->shelterContact ? [
+                    'name' => $pet->shelter->shelterContact->name,
+                    'phone' => $pet->shelter->shelterContact->phone,
+                    'email' => $pet->shelter->shelterContact->email,
+                    'website' => $pet->shelter->shelterContact->website,
+                    'address' => $pet->shelter->shelterContact->address,
+                    'hours' => $pet->shelter->shelterContact->hours,
                 ] : null,
             ]
         ], 200);
@@ -308,7 +356,8 @@ class PetController extends Controller
             return redirect()->route('profile')->with('status', 'Pet not found.');
         }
 
-        if ((int) $pet->created_by !== (int) $user->id) {
+        // Admins may delete any pet; shelter staff may only delete their own
+        if (! $user->isAdmin() && (int) $pet->created_by !== (int) $user->id) {
             if ($wantsJson) {
                 return response()->json([
                     'message' => 'Unauthorized.',
@@ -321,20 +370,8 @@ class PetController extends Controller
 
         try {
             DB::transaction(function () use ($pet) {
-                if ($pet->image_url && str_starts_with($pet->image_url, '/storage/')) {
-                    $oldPath = str_replace('/storage/', '', $pet->image_url);
-                    \Illuminate\Support\Facades\Storage::disk('public')->delete($oldPath);
-                }
-
-                // Some environments may not have all optional relation tables migrated yet.
-                if (Schema::hasTable('pet_medical_records')) {
-                    $pet->medicalRecords()->delete();
-                }
-
-                if (Schema::hasTable('shelter_contacts')) {
-                    $pet->shelterContact()->delete();
-                }
-
+                // Soft-delete child records before soft-deleting the pet
+                $pet->medicalRecords()->delete();
                 $pet->delete();
             });
 

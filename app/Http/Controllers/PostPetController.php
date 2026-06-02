@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\Role;
 use App\Models\Pet;
+use App\Models\Shelter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -13,11 +16,19 @@ class PostPetController extends Controller
 {
     public function create(Request $request): Response|RedirectResponse
     {
-        if (! $request->user()) {
+        $user = $request->user();
+
+        if (! $user) {
             return redirect('/auth');
         }
 
-        return Inertia::render('PostPet');
+        if (! $user->hasRole(Role::ShelterStaff, Role::Admin)) {
+            abort(403, 'Only shelter staff and admins may post pets.');
+        }
+
+        $shelters = Shelter::orderBy('name')->get(['id', 'name']);
+
+        return Inertia::render('PostPet', ['shelters' => $shelters]);
     }
 
     public function store(Request $request): RedirectResponse
@@ -26,6 +37,10 @@ class PostPetController extends Controller
 
         if (! $user) {
             return redirect('/auth');
+        }
+
+        if (! $user->hasRole(Role::ShelterStaff, Role::Admin)) {
+            abort(403, 'Only shelter staff and admins may post pets.');
         }
 
         $validated = $request->validate([
@@ -43,7 +58,7 @@ class PostPetController extends Controller
             'availability_status' => ['nullable', 'boolean'],
             'adoption_fee' => ['required', 'numeric', 'min:0'],
             'shelter_name' => ['required', 'string', 'max:255'],
-            'image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:5120'],
+            'image'        => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:5120'],
             'image_url' => ['nullable', 'url', 'max:2048'],
             'description' => ['required', 'string'],
 
@@ -88,9 +103,17 @@ class PostPetController extends Controller
             // Handle file upload if provided
             $imageUrl = $validated['image_url'] ?? null;
             if ($request->hasFile('image')) {
-                $path = $request->file('image')->store('pet-images', 'public');
-                $imageUrl = '/storage/' . $path;
+                $disk     = config('filesystems.upload_disk');
+                $path     = $request->file('image')->store('pet-images', $disk);
+                $imageUrl = $disk === 'public'
+                    ? '/storage/' . $path
+                    : Storage::disk($disk)->url($path);
             }
+
+            $shelter = Shelter::firstOrCreate(
+                ['name' => $validated['shelter_name']],
+                ['created_by' => $user->id]
+            );
 
             $pet = Pet::create([
                 'created_by' => $user->id,
@@ -107,8 +130,7 @@ class PostPetController extends Controller
                 'is_vetted' => $validated['is_vetted'] ?? true,
                 'availability_status' => $validated['availability_status'] ?? true,
                 'adoption_fee' => $validated['adoption_fee'],
-                'shelter_name' => $validated['shelter_name'],
-                'image_url' => $imageUrl,
+                'shelter_id' => $shelter->id,
                 'description' => $validated['description'],
                 'temperament_tags' => $validated['temperament_tags'] ?? [],
                 'photos' => $validated['photos'] ?? [],
@@ -120,15 +142,26 @@ class PostPetController extends Controller
                 'exercise_requirements' => $validated['exercise_requirements'] ?? null,
             ]);
 
-            $pet->shelterContact()->create([
-                'created_by' => $user->id,
-                'name' => $validated['contact']['name'],
-                'phone' => $validated['contact']['phone'],
-                'email' => $validated['contact']['email'],
-                'website' => $validated['contact']['website'] ?? null,
-                'address' => $validated['contact']['address'],
-                'hours' => $validated['contact']['hours'] ?? null,
-            ]);
+            if ($imageUrl) {
+                $pet->petImages()->create([
+                    'url'        => $imageUrl,
+                    'is_primary' => true,
+                    'order'      => 0,
+                ]);
+            }
+
+            $shelter->shelterContact()->updateOrCreate(
+                ['shelter_id' => $shelter->id],
+                [
+                    'created_by' => $user->id,
+                    'name' => $validated['contact']['name'],
+                    'phone' => $validated['contact']['phone'],
+                    'email' => $validated['contact']['email'],
+                    'website' => $validated['contact']['website'] ?? null,
+                    'address' => $validated['contact']['address'],
+                    'hours' => $validated['contact']['hours'] ?? null,
+                ]
+            );
 
             foreach ($validated['medical_history'] ?? [] as $record) {
                 $pet->medicalRecords()->create([

@@ -25,6 +25,13 @@ const tagVariants: Record<TemperamentTag, "energy" | "calm" | "friendly" | "play
 
 export function PetCard({ pet, index = 0 }: PetCardProps) {
   const { toggle, isFavorite } = useFavorites();
+  const favorited = isFavorite(pet.id);
+
+  const handleToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    void toggle(pet.id, pet.name);
+  };
 
   return (
       <motion.article
@@ -43,8 +50,23 @@ export function PetCard({ pet, index = 0 }: PetCardProps) {
           <div className="absolute inset-0 bg-linear-to-t from-foreground/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         </Link>
 
-        {/** favorite button — stopPropagation so link doesn't navigate */}
-        <FavoriteButton petId={pet.id} />
+        <button
+          onClick={handleToggle}
+          aria-label={favorited ? 'Remove from favorites' : 'Add to favorites'}
+          className={`absolute top-3 right-3 w-10 h-10 rounded-full backdrop-blur-sm flex items-center justify-center transition-all duration-200 hover:scale-110 ${
+            favorited
+              ? 'bg-rose-50/90 text-rose-500 dark:bg-rose-950/80'
+              : 'bg-background/80 text-foreground hover:bg-primary hover:text-primary-foreground'
+          }`}
+        >
+          {favorited ? (
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-5 h-5 fill-current">
+              <path d="M12 21s-7.5-4.9-10-8.2A5.5 5.5 0 0 1 3 7.5C3 5 5 3 7.5 3c1.6 0 3 .9 4.5 2.4C13.5 3.9 14.9 3 16.5 3 19 3 21 5 21 7.5c0 1.9-.7 3.5-1.9 5.3C19.5 16.1 12 21 12 21z" />
+            </svg>
+          ) : (
+            <Heart className="w-5 h-5" />
+          )}
+        </button>
 
         {pet.medicalStatus !== "Healthy" && (
           <Badge variant="secondary" className="absolute top-3 left-3">
@@ -64,7 +86,7 @@ export function PetCard({ pet, index = 0 }: PetCardProps) {
             </Link>
           </div>
           <div className="text-right">
-            <span className="font-display text-lg text-primary">${pet.adoptionFee}</span>
+            <span className="font-display text-lg text-primary">₱{pet.adoptionFee}</span>
             <p className="text-xs text-muted-foreground">Adoption Fee</p>
           </div>
         </div>
@@ -86,48 +108,14 @@ export function PetCard({ pet, index = 0 }: PetCardProps) {
             <MapPin className="w-4 h-4" />
             <span className="text-xs font-body">{pet.shelterName}</span>
           </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  e.preventDefault();
-                  toggle(pet.id);
-                }}
-                aria-label="Toggle favorite"
-                className={`inline-flex items-center justify-center w-9 h-9 rounded-md hover:bg-muted/30 ${isFavorite(pet.id) ? 'text-primary' : ''}`}
-              >
-                {isFavorite(pet.id) ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-4 h-4 fill-current">
-                    <path d="M12 21s-7.5-4.9-10-8.2A5.5 5.5 0 0 1 3 7.5C3 5 5 3 7.5 3c1.6 0 3 .9 4.5 2.4C13.5 3.9 14.9 3 16.5 3 19 3 21 5 21 7.5c0 1.9-.7 3.5-1.9 5.3C19.5 16.1 12 21 12 21z" />
-                  </svg>
-                ) : (
-                  <Heart className="w-4 h-4" />
-                )}
-              </button>
-
-              <Link href={`/pets/${pet.id}`}>
-                <Button variant="soft" size="sm">
-                  Meet {pet.name}
-                </Button>
-              </Link>
-            </div>
+          <Link href={`/pets/${pet.id}`}>
+            <Button variant="soft" size="sm">
+              Meet {pet.name}
+            </Button>
+          </Link>
         </div>
       </div>
-
-      {/* Details moved to the pet detail page. */}
     </motion.article>
   );
 }
 
-function FavoriteButton({ petId }: { petId: string }) {
-  // Clicking the heart navigates to the pet detail page per design
-  return (
-    <Link
-      href={`/pets/${petId}`}
-      className="absolute top-3 right-3 w-10 h-10 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center transition-all duration-300 hover:bg-primary hover:text-primary-foreground"
-      aria-label="View pet details"
-    >
-      <Heart className="w-5 h-5" />
-    </Link>
-  );
-}

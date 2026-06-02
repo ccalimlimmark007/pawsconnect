@@ -2,46 +2,75 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Pet;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class FavoriteController extends Controller
 {
-    public function index(Request $request)
+    public function page(Request $request): Response
     {
-        $user = Auth::user();
-        if (! $user) {
-            return response()->json(['favorites' => []], 200);
+        $user        = $request->user();
+        $favoriteIds = $user?->favorites ?? [];
+
+        $favoritePets = [];
+        if (! empty($favoriteIds)) {
+            $favoritePets = Pet::with(['petImages', 'shelter'])
+                ->whereIn('id', $favoriteIds)
+                ->where('availability_status', true)
+                ->get()
+                ->map(fn ($pet) => [
+                    'id'          => (string) $pet->id,
+                    'name'        => $pet->name,
+                    'species'     => $pet->species,
+                    'breed'       => $pet->breed,
+                    'age'         => $pet->age,
+                    'ageUnit'     => $pet->age_unit,
+                    'imageUrl'    => $pet->petImages->firstWhere('is_primary', true)?->url
+                        ?? $pet->petImages->first()?->url,
+                    'adoptionFee' => (float) $pet->adoption_fee,
+                    'shelterName' => $pet->shelter?->name,
+                ])
+                ->toArray();
         }
 
-        $favorites = $user->favorites ? json_decode($user->favorites, true) : [];
-        return response()->json(['favorites' => $favorites], 200);
+        return Inertia::render('MyFavorites', ['favoritePets' => $favoritePets]);
     }
 
-    public function toggle(Request $request)
+    public function index(Request $request): JsonResponse
     {
-        $request->validate(['id' => 'required|string']);
+        $user = $request->user();
 
-        $user = Auth::user();
         if (! $user) {
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
-        $id = (string) $request->input('id');
-        $favorites = $user->favorites ? json_decode($user->favorites, true) : [];
-        if (! is_array($favorites)) $favorites = [];
+        return response()->json(['favorites' => array_values($user->favorites ?? [])]);
+    }
 
-        if (in_array($id, $favorites)) {
-            $favorites = array_values(array_filter($favorites, fn($x) => $x !== $id));
-            $action = 'removed';
+    public function toggle(Request $request): JsonResponse
+    {
+        $request->validate(['id' => 'required|string']);
+
+        $user      = $request->user();
+        $petId     = (string) $request->input('id');
+        $favorites = $user->favorites ?? [];
+
+        if (in_array($petId, $favorites, true)) {
+            $favorites = array_values(array_filter($favorites, fn ($id) => $id !== $petId));
+            $added     = false;
         } else {
-            $favorites[] = $id;
-            $action = 'added';
+            $favorites[] = $petId;
+            $added       = true;
         }
 
-        $user->favorites = json_encode(array_values($favorites));
-        $user->save();
+        $user->update(['favorites' => array_values($favorites)]);
 
-        return response()->json(['favorites' => $favorites, 'action' => $action], 200);
+        return response()->json([
+            'favorites' => array_values($favorites),
+            'added'     => $added,
+        ]);
     }
 }

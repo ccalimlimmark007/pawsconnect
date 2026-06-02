@@ -5,6 +5,9 @@ export type User = {
     avatar?: string;
     email_verified_at: string | null;
     two_factor_enabled?: boolean;
+    phone_number: string | null;
+    sms_notifications: boolean;
+    role?: string;
     created_at: string;
     updated_at: string;
     [key: string]: unknown;

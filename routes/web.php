@@ -1,215 +1,170 @@
 <?php
+
+use App\Http\Controllers\AdopterProfileController;
 use App\Http\Controllers\AdoptionApplicationController;
+use App\Http\Controllers\AdminController;
+use App\Http\Controllers\Api\ShelterAvailabilityController;
+use App\Http\Controllers\ApplicationDocumentController;
+use App\Http\Controllers\FavoriteController;
+use App\Http\Controllers\HomeVisitController;
+use App\Http\Controllers\PetController;
+use App\Http\Controllers\PetImageController;
 use App\Http\Controllers\PostPetController;
-use App\Models\Pet;
-use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Controllers\ShelterVisitController;
+use App\Http\Controllers\StaffController;
+use App\Http\Controllers\UserProfileController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-// --- Public Pages ---
-Route::get('/', function () {
-    return Inertia::render('Home');
-})->name('home');
+// ── Public Pages ──────────────────────────────────────────────────────────────
 
-Route::get('/pets', function () {
-    $pets = Pet::with(['shelterContact', 'medicalRecords'])
-        ->where('availability_status', true)
-        ->orderBy('created_at', 'desc')
-        ->get()
-        ->map(function ($pet) {
-            return [
-                'id' => (string) $pet->id,
-                'name' => $pet->name,
-                'species' => $pet->species,
-                'breed' => $pet->breed,
-                'age' => $pet->age,
-                'ageUnit' => $pet->age_unit,
-                'gender' => $pet->gender,
-                'size' => $pet->size,
-                'color' => $pet->color,
-                'weight' => $pet->weight ? (float) $pet->weight : null,
-                'temperamentTags' => $pet->temperament_tags ?? [],
-                'personalityTraits' => $pet->personality_traits ?? [],
-                'medicalStatus' => $pet->medical_status,
-                'isVetted' => $pet->is_vetted,
-                'availabilityStatus' => $pet->availability_status,
-                'description' => $pet->description,
-                'imageUrl' => $pet->image_url,
-                'shelterName' => $pet->shelter_name,
-                'adoptionFee' => (float) $pet->adoption_fee,
-                'dateAdded' => optional($pet->created_at)?->toDateString(),
-                'shelterContact' => $pet->shelterContact ? [
-                    'phone' => $pet->shelterContact->phone,
-                    'email' => $pet->shelterContact->email,
-                    'address' => $pet->shelterContact->address,
-                    'hours' => $pet->shelterContact->hours,
-                ] : null,
-                'medicalHistory' => $pet->medicalRecords->map(fn ($record) => [
-                    'title' => $record->type,
-                    'note' => $record->notes ?: $record->description,
-                    'date' => optional($record->record_date)?->toDateString() ?: optional($record->created_at)?->toDateString(),
-                ])->values()->toArray(),
-            ];
-        });
+Route::get('/', fn () => Inertia::render('Home'))->name('home');
+Route::get('/about', fn () => Inertia::render('About'))->name('about');
+Route::get('/quiz', fn () => Inertia::render('Quiz'))->name('quiz');
+Route::get('/matches', fn (Request $request) => Inertia::render('Matches', [
+    'results' => $request->query('results'),
+]))->name('matches');
 
-    return Inertia::render('Pets/Index', [
-        'pets' => $pets,
-    ]);
-})->name('pets.index');
+// Pet browsing
+Route::get('/pets', [PetController::class, 'index'])->name('pets.index');
+Route::get('/pets/{id}', [PetController::class, 'show'])->name('pets.show');
 
-// Pet detail page
-Route::get('/pets/{id}', function ($id) {
-    $dbPet = Pet::with(['shelterContact', 'medicalRecords'])->find($id);
+// Application form (public page — submit requires auth)
+Route::get('/apply', [AdoptionApplicationController::class, 'applyForm'])->name('pets.apply');
 
-    if ($dbPet) {
-        return Inertia::render('Pets/Show', [
-            'petId' => (string) $id,
-            'pet' => [
-                'id' => (string) $dbPet->id,
-                'name' => $dbPet->name,
-                'species' => $dbPet->species,
-                'breed' => $dbPet->breed,
-                'age' => $dbPet->age,
-                'ageUnit' => $dbPet->age_unit,
-                'gender' => $dbPet->gender,
-                'size' => $dbPet->size,
-                'temperamentTags' => $dbPet->temperament_tags ?? [],
-                'medicalStatus' => $dbPet->medical_status,
-                'description' => $dbPet->description,
-                'imageUrl' => $dbPet->image_url,
-                'shelterName' => $dbPet->shelter_name,
-                'adoptionFee' => (float) $dbPet->adoption_fee,
-                'dateAdded' => optional($dbPet->created_at)?->toDateString(),
-                'medicalHistory' => $dbPet->medicalRecords->map(fn ($record) => [
-                    'title' => $record->type,
-                    'note' => $record->notes ?: $record->description,
-                    'date' => optional($record->record_date)?->toDateString() ?: optional($record->created_at)?->toDateString(),
-                ])->values(),
-                'shelterContact' => $dbPet->shelterContact ? [
-                    'phone' => $dbPet->shelterContact->phone,
-                    'email' => $dbPet->shelterContact->email,
-                    'address' => $dbPet->shelterContact->address,
-                    'hours' => $dbPet->shelterContact->hours,
-                ] : null,
-            ],
-        ]);
-    }
+// Auth fallback (Fortify handles the real login route)
+Route::get('/login', fn () => Inertia::render('auth/login'))->name('login');
+Route::get('/auth', fn () => redirect()->route('login'))->name('auth.redirect');
 
-    return Inertia::render('Pets/Show', [
-        'petId' => $id,
-    ]);
-})->name('pets.show');
+// ── Signed Downloads (URL signature provides auth) ────────────────────────────
 
-Route::middleware('auth')->group(function () {
-    Route::get('/post-pet', [PostPetController::class, 'create'])->name('pets.post');
-    Route::post('/post-pet', [PostPetController::class, 'store'])->name('pets.store');
+Route::get('/documents/{document}/download', [ApplicationDocumentController::class, 'download'])
+    ->name('documents.download');
+
+// ── Shelter Visit Availability (public read) ──────────────────────────────────
+
+Route::prefix('api')->group(function () {
+    Route::get('/shelter-visits/available-slots', [ShelterAvailabilityController::class, 'availableSlots'])
+        ->name('api.shelter-visits.available-slots');
+    Route::get('/shelter-visits/booked-dates', [ShelterAvailabilityController::class, 'bookedDates'])
+        ->name('api.shelter-visits.booked-dates');
+
+    // Public pet API (used by the filter UI)
+    Route::get('/pets', [\App\Http\Controllers\Api\PetFilterController::class, 'index'])->name('api.pets.index');
+    Route::get('/pets/stats', [\App\Http\Controllers\Api\PetFilterController::class, 'stats'])->name('api.pets.stats');
 });
 
-// Apply form page
-Route::get('/apply', function (Request $request) {
-    return Inertia::render('Pets/Apply', [
-        'pet' => $request->query('pet'),
-    ]);
-})->name('pets.apply');
+// ── Authenticated Routes ───────────────────────────────────────────────────────
 
-Route::post('/apply/start', [AdoptionApplicationController::class, 'start'])
-    ->middleware('auth')
-    ->name('pets.apply.start');
-
-// 1. The Quiz Page
-Route::get('/quiz', function () {
-    return Inertia::render('Quiz'); 
-})->name('quiz');
-
-// 2. The Results Page (where the quiz sends you after)
-Route::get('/matches', function (Request $request) {
-    return Inertia::render('Matches', [
-        // This picks up the results sent from the Quiz
-        'results' => $request->query('results') 
-    ]);
-})->name('matches');
-
-Route::get('/about', function () {
-    return Inertia::render('About');
-})->name('about');
-
-
-// --- Auth Pages ---
-// Fortify handles authentication routes automatically (login, register, logout, etc.)
-// These routes are configured in app/Providers/FortifyServiceProvider.php
-
-// If the Fortify controllers/pages are not available, provide a simple
-// fallback route that renders the login page directly.
-Route::get('/login', function () {
-    return Inertia::render('auth/login');
-})->name('login');
-
-Route::get('/auth', function () {
-    return redirect()->route('login');
-})->name('auth.redirect');
-
-// --- Protected Routes ---
 Route::middleware(['auth'])->group(function () {
+
+    // Dashboard — redirects to role-appropriate view
     Route::get('/dashboard', function () {
+        $user = auth()->user();
+        if ($user?->isAdmin()) {
+            return redirect()->route('admin.dashboard');
+        }
+        if ($user?->isShelterStaff()) {
+            return redirect()->route('staff.dashboard');
+        }
         return Inertia::render('dashboard');
     })->name('dashboard');
 
-    Route::get('/profile', function () {
-        $user = auth()->user();
-        $userPets = [];
-        
-        if ($user) {
-            $userPets = Pet::where('created_by', $user->id)
-                ->orderBy('created_at', 'desc')
-                ->get()
-                ->map(function ($pet) {
-                    return [
-                        'id' => (string) $pet->id,
-                        'name' => $pet->name,
-                        'species' => $pet->species,
-                        'breed' => $pet->breed,
-                        'age' => $pet->age,
-                        'ageUnit' => $pet->age_unit,
-                        'gender' => $pet->gender,
-                        'size' => $pet->size,
-                        'color' => $pet->color,
-                        'weight' => $pet->weight ? (float) $pet->weight : null,
-                        'temperamentTags' => $pet->temperament_tags ?? [],
-                        'availabilityStatus' => $pet->availability_status,
-                        'description' => $pet->description,
-                        'imageUrl' => $pet->image_url,
-                        'shelterName' => $pet->shelter_name,
-                        'adoptionFee' => (float) $pet->adoption_fee,
-                        'datePosted' => optional($pet->created_at)?->toDateString(),
-                    ];
-                })->toArray();
-        }
-        
-        return Inertia::render('Profile', [
-            'status' => session('status'),
-            'userPets' => $userPets,
-        ]);
-    })->name('profile');
+    // User profile dashboard
+    Route::get('/profile', [UserProfileController::class, 'index'])->name('profile');
 
-    Route::delete('/profile/pets/{id}', [\App\Http\Controllers\Api\PetController::class, 'destroy'])
-        ->name('profile.pets.destroy');
-});
+    // Favorites (JSON API + page)
+    Route::prefix('api')->group(function () {
+        Route::get('/favorites', [FavoriteController::class, 'index'])->name('favorites.index');
+        Route::post('/favorites/toggle', [FavoriteController::class, 'toggle'])
+            ->middleware('throttle:favorites')
+            ->name('favorites.toggle');
 
-// Favorites API (JSON only)
-Route::prefix('api')->group(function () {
-    Route::get('/favorites', [\App\Http\Controllers\FavoriteController::class, 'index'])->name('favorites.index');
-    Route::post('/favorites/toggle', [\App\Http\Controllers\FavoriteController::class, 'toggle'])->withoutMiddleware('VerifyCsrfToken')->name('favorites.toggle');
-    
-    // Pet filtering and search API
-    Route::get('/pets', [\App\Http\Controllers\Api\PetFilterController::class, 'index'])->name('api.pets.index');
-    Route::get('/pets/stats', [\App\Http\Controllers\Api\PetFilterController::class, 'stats'])->name('api.pets.stats');
-    
-    // Authenticated pet management API for session-based web users
-    Route::middleware('auth')->group(function () {
+        // Authenticated pet management (session-based web users)
         Route::get('/pets/{id}', [\App\Http\Controllers\Api\PetController::class, 'show'])->name('api.pets.show');
-        Route::patch('/pets/{id}', [\App\Http\Controllers\Api\PetController::class, 'update'])->withoutMiddleware('VerifyCsrfToken')->name('api.pets.update');
-        Route::delete('/pets/{id}', [\App\Http\Controllers\Api\PetController::class, 'destroy'])->withoutMiddleware('VerifyCsrfToken')->name('api.pets.destroy');
-        Route::post('/pets/{id}/delete', [\App\Http\Controllers\Api\PetController::class, 'destroy'])->withoutMiddleware('VerifyCsrfToken')->name('api.pets.destroy.post');
+        Route::middleware('role:shelter_staff,admin')->group(function () {
+            Route::patch('/pets/{id}', [\App\Http\Controllers\Api\PetController::class, 'update'])
+                ->withoutMiddleware('VerifyCsrfToken')
+                ->name('api.pets.update');
+            Route::delete('/pets/{id}', [\App\Http\Controllers\Api\PetController::class, 'destroy'])
+                ->withoutMiddleware('VerifyCsrfToken')
+                ->name('api.pets.destroy');
+            Route::post('/pets/{id}/delete', [\App\Http\Controllers\Api\PetController::class, 'destroy'])
+                ->withoutMiddleware('VerifyCsrfToken')
+                ->name('api.pets.destroy.post');
+        });
+    });
+
+    // ── Adopter-only ──────────────────────────────────────────────────────────
+
+    Route::middleware('role:adopter')->group(function () {
+        Route::get('/my-favorites', [FavoriteController::class, 'page'])->name('my-favorites');
+        Route::get('/my-applications', [AdoptionApplicationController::class, 'myApplications'])->name('pets.my-applications');
+        Route::post('/apply/submit', [AdoptionApplicationController::class, 'submit'])
+            ->middleware('throttle:applications')
+            ->name('pets.apply.submit');
+        Route::post('/apply/start', [AdoptionApplicationController::class, 'start'])->name('pets.apply.start');
+        Route::post('/my-applications/{application}/documents', [ApplicationDocumentController::class, 'store'])
+            ->name('documents.adopter-store');
+
+        // Adopter preference profile
+        Route::get('/profile/preferences', [AdopterProfileController::class, 'edit'])->name('profile.preferences');
+        Route::put('/profile/preferences', [AdopterProfileController::class, 'update'])->name('profile.preferences.update');
+    });
+
+    // Shelter visit scheduling (adopters + staff)
+    Route::post('/visits', [ShelterVisitController::class, 'store'])->name('visits.store');
+    Route::delete('/visits/{visit}', [ShelterVisitController::class, 'destroy'])->name('visits.destroy');
+    Route::get('/my-visits', [ShelterVisitController::class, 'index'])->name('visits.index');
+
+    // ── Shelter Staff & Admin ─────────────────────────────────────────────────
+
+    Route::middleware('role:shelter_staff,admin')->group(function () {
+        // Pet posting
+        Route::get('/post-pet', [PostPetController::class, 'create'])->name('pets.post');
+        Route::post('/post-pet', [PostPetController::class, 'store'])
+            ->middleware('throttle:pet-posting')
+            ->name('pets.store');
+
+        // Pet images
+        Route::post('/pets/{pet}/images', [PetImageController::class, 'store'])->name('pet-images.store');
+        Route::delete('/pet-images/{image}', [PetImageController::class, 'destroy'])->name('pet-images.destroy');
+        Route::patch('/pet-images/{image}/primary', [PetImageController::class, 'setPrimary'])->name('pet-images.set-primary');
+        Route::post('/pets/{pet}/images/reorder', [PetImageController::class, 'reorder'])->name('pet-images.reorder');
+
+        // Adoption application management
+        Route::get('/admin/applications', [AdoptionApplicationController::class, 'index'])->name('admin.applications');
+        Route::patch('/admin/applications/{id}', [AdoptionApplicationController::class, 'updateStatus'])->name('admin.applications.update');
+
+        // Home visits
+        Route::post('/admin/applications/{application}/visit', [HomeVisitController::class, 'store'])->name('admin.visits.store');
+        Route::patch('/admin/visits/{visit}', [HomeVisitController::class, 'update'])->name('admin.visits.update');
+        Route::delete('/admin/visits/{visit}', [HomeVisitController::class, 'destroy'])->name('admin.visits.destroy');
+
+        // Shelter visit management
+        Route::patch('/admin/shelter-visits/{visit}/confirm', [ShelterVisitController::class, 'confirm'])->name('admin.shelter-visits.confirm');
+        Route::patch('/admin/shelter-visits/{visit}/decline', [ShelterVisitController::class, 'decline'])->name('admin.shelter-visits.decline');
+
+        // Documents
+        Route::get('/admin/documents/{document}/signed-url', [ApplicationDocumentController::class, 'signedUrl'])->name('documents.signed-url');
+        Route::delete('/admin/documents/{document}', [ApplicationDocumentController::class, 'destroy'])->name('documents.destroy');
+
+        // Staff dashboard
+        Route::get('/staff/dashboard', [StaffController::class, 'dashboard'])->name('staff.dashboard');
+    });
+
+    // ── Admin-only ────────────────────────────────────────────────────────────
+
+    Route::middleware('role:admin')->group(function () {
+        Route::get('/admin', [AdminController::class, 'index'])->name('admin.dashboard');
+        Route::get('/admin/analytics', [AdminController::class, 'analytics'])->name('admin.analytics');
+        Route::get('/admin/users', [AdminController::class, 'users'])->name('admin.users');
+        Route::get('/admin/trash', [AdminController::class, 'trash'])->name('admin.trash');
+        Route::get('/admin/activity', [AdminController::class, 'activityLog'])->name('admin.activity');
+        Route::patch('/admin/trash/{type}/{id}/restore', [AdminController::class, 'restore'])->name('admin.trash.restore');
+        Route::delete('/admin/trash/{type}/{id}', [AdminController::class, 'forceDelete'])->name('admin.trash.force-delete');
+        Route::patch('/admin/users/{id}/role', [AdminController::class, 'updateUserRole'])->name('admin.users.role');
+        Route::delete('/admin/users/{id}', [AdminController::class, 'destroyUser'])->name('admin.users.destroy');
     });
 });

@@ -25,6 +25,13 @@ export interface ShelterContact {
   hours: string;
 }
 
+export interface PetImage {
+  id: number;
+  url: string;
+  isPrimary: boolean;
+  order: number;
+}
+
 export interface Pet {
   id: string;
   name: string;
@@ -40,6 +47,8 @@ export interface Pet {
   medicalStatus: MedicalStatus;
   description: string;
   imageUrl: string;
+  images?: PetImage[];
+  shelterId?: number;
   shelterName: string;
   shelterContact?: ShelterContact;
   medicalHistory?: MedicalRecord[];

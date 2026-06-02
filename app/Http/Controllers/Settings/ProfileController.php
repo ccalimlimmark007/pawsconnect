@@ -31,17 +31,21 @@ class ProfileController extends Controller
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
         $user = $request->user();
-        $originalData = $user->only(['name', 'email']);
-        
+
         $user->fill($request->validated());
+
+        // Explicitly resolve the boolean: absent checkbox = false
+        $user->sms_notifications = $request->boolean('sms_notifications');
+
+        // Empty string → null for phone_number
+        $user->phone_number = $request->input('phone_number') ?: null;
 
         if ($user->isDirty('email')) {
             $user->email_verified_at = null;
         }
 
-        // Check if any changes were made
         $hasChanges = $user->isDirty();
-        
+
         if ($hasChanges) {
             $user->save();
             $message = 'Your profile has been updated successfully.';

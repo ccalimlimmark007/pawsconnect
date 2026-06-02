@@ -22,7 +22,13 @@ return new class extends Migration
             $table->string('age_unit')->default('years');
             $table->string('gender');
             $table->string('size');
+            // Columns added by add_filter_fields migration (included here so tests get a
+            // complete schema regardless of migration filename sort order)
+            $table->string('color')->nullable();
+            $table->decimal('weight', 8, 2)->nullable();
             $table->string('medical_status');
+            $table->boolean('is_vetted')->default(true);
+            $table->boolean('availability_status')->default(true);
             $table->decimal('adoption_fee', 10, 2)->default(0);
             $table->string('shelter_name');
             $table->string('image_url');

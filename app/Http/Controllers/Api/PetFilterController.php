@@ -29,7 +29,7 @@ class PetFilterController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Pet::query()->with(['shelterContact', 'medicalRecords']);
+        $query = Pet::query()->with(['shelter.shelterContact', 'medicalRecords', 'petImages']);
 
         // Filter by availability (default: only show available pets)
         $availableOnly = $request->boolean('available_only', true);
@@ -37,15 +37,10 @@ class PetFilterController extends Controller
             $query->where('availability_status', true);
         }
 
-        // Text search across name, breed, and personality_traits
+        // Full-text search: MATCH…AGAINST on MySQL (uses pets_fulltext index),
+        // LIKE fallback on SQLite for local dev / CI.
         if ($request->filled('q')) {
-            $searchTerm = $request->input('q');
-            $query->where(function ($q) use ($searchTerm) {
-                $q->where('name', 'LIKE', "%{$searchTerm}%")
-                    ->orWhere('breed', 'LIKE', "%{$searchTerm}%")
-                    ->orWhere('description', 'LIKE', "%{$searchTerm}%")
-                    ->orWhereJsonContains('personality_traits', $searchTerm);
-            });
+            $query->fullTextSearch($request->input('q'));
         }
 
         // Filter by species (supports multiple values)
@@ -84,15 +79,19 @@ class PetFilterController extends Controller
             $query->where('is_vetted', $request->boolean('is_vetted'));
         }
 
+        // Relevance ordering (MySQL only): applies before the explicit sort so the
+        // most relevant results float to the top when a search term is present.
+        if ($request->filled('q')) {
+            $query->orderByRelevance($request->input('q'));
+        }
+
         // Sorting
         $sortBy = $request->input('sort_by', 'created_at');
         $sortOrder = $request->input('sort_order', 'desc');
-        
-        // Map friendly sort names
-        $sortField = match($sortBy) {
-            'date_posted' => 'created_at',
-            'newest' => 'created_at',
-            default => $sortBy,
+
+        $sortField = match ($sortBy) {
+            'date_posted', 'newest' => 'created_at',
+            default                 => $sortBy,
         };
 
         $query->orderBy($sortField, $sortOrder);
@@ -122,15 +121,22 @@ class PetFilterController extends Controller
                 'isVetted' => $pet->is_vetted,
                 'availabilityStatus' => $pet->availability_status,
                 'description' => $pet->description,
-                'imageUrl' => $pet->image_url,
-                'shelterName' => $pet->shelter_name,
+                'imageUrl' => $pet->petImages->firstWhere('is_primary', true)?->url
+                    ?? $pet->petImages->first()?->url,
+                'images' => $pet->petImages->map(fn ($img) => [
+                    'id'        => $img->id,
+                    'url'       => $img->url,
+                    'isPrimary' => $img->is_primary,
+                    'order'     => $img->order,
+                ])->values(),
+                'shelterName' => $pet->shelter?->name,
                 'adoptionFee' => (float) $pet->adoption_fee,
                 'dateAdded' => optional($pet->created_at)?->toDateString(),
-                'shelterContact' => $pet->shelterContact ? [
-                    'phone' => $pet->shelterContact->phone,
-                    'email' => $pet->shelterContact->email,
-                    'address' => $pet->shelterContact->address,
-                    'hours' => $pet->shelterContact->hours,
+                'shelterContact' => $pet->shelter?->shelterContact ? [
+                    'phone' => $pet->shelter->shelterContact->phone,
+                    'email' => $pet->shelter->shelterContact->email,
+                    'address' => $pet->shelter->shelterContact->address,
+                    'hours' => $pet->shelter->shelterContact->hours,
                 ] : null,
             ];
         });

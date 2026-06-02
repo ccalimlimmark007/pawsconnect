@@ -52,19 +52,6 @@ const catBreeds = [
   'Other',
 ];
 
-const shelterNames = [
-  'Happy Tails Rescue',
-  'Paws & Claws Sanctuary',
-  'Golden Paw Shelter',
-  'Feline Friends Haven',
-  'City Animal Control',
-  'Hope For Paws Foundation',
-  'Midwest Pet Adoption Center',
-  'Suncoast Humane Society',
-  'Whiskers Welfare League',
-  'Central Valley Animal Shelter',
-];
-
 function parseList(value: string): string[] {
   return value
     .split(',')
@@ -72,9 +59,15 @@ function parseList(value: string): string[] {
     .filter(Boolean);
 }
 
+interface Shelter {
+  id: number;
+  name: string;
+}
+
 export default function PostPet() {
   const page = usePage();
   const user = (page.props as { auth?: { user?: unknown } }).auth?.user;
+  const shelters = (page.props as { shelters?: Shelter[] }).shelters ?? [];
 
   const [form, setForm] = useState({
     name: '',
@@ -386,8 +379,8 @@ export default function PostPet() {
                     onChange={(e) => setForm((p) => ({ ...p, shelter_name: e.target.value }))} 
                   />
                   <datalist id="shelter-options">
-                    {shelterNames.map((shelter) => (
-                      <option key={shelter} value={shelter} />
+                    {shelters.map((shelter) => (
+                      <option key={shelter.id} value={shelter.name} />
                     ))}
                   </datalist>
                 </div>

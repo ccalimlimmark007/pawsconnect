@@ -5,16 +5,15 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ShelterContact extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
-    /**
-     * @var list<string>
-     */
+    /** @var list<string> */
     protected $fillable = [
-        'pet_id',
+        'shelter_id',
         'created_by',
         'name',
         'phone',
@@ -22,11 +21,22 @@ class ShelterContact extends Model
         'website',
         'address',
         'hours',
+        'structured_hours',
+        'slot_duration_minutes',
     ];
 
-    public function pet(): BelongsTo
+    /** @return array<string, string> */
+    protected function casts(): array
     {
-        return $this->belongsTo(Pet::class);
+        return [
+            'structured_hours'      => 'array',
+            'slot_duration_minutes' => 'integer',
+        ];
+    }
+
+    public function shelter(): BelongsTo
+    {
+        return $this->belongsTo(Shelter::class);
     }
 
     public function creator(): BelongsTo

@@ -1,7 +1,7 @@
-import { motion } from "framer-motion";
-import { Button } from "@/components/ui/button";
 import { Link } from "@inertiajs/react";
+import { motion } from "framer-motion";
 import { ArrowRight, Heart } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export function CTASection() {
   return (
@@ -34,13 +34,13 @@ export function CTASection() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button asChild size="lg" className="bg-primary-foreground text-primary hover:bg-primary-foreground/90">
+            <Button asChild size="lg" className="bg-primary-foreground text-primary hover:bg-primary-foreground/90 hover:text-orange-500">
               <Link href="/quiz">
                 Start the Quiz
                 <ArrowRight className="w-5 h-5 ml-2" />
               </Link>
             </Button>
-            <Button asChild variant="outline" size="lg" className="border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10">
+            <Button asChild variant="outline" size="lg" className="border-primary-foreground/30 text-orange-500 hover:bg-primary-foreground/10">
               <Link href="/pets">
                 Browse Pets First
               </Link>
